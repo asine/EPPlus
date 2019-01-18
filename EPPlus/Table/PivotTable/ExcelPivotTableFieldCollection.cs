@@ -29,293 +29,105 @@
  * Jan Källman		Added		21-MAR-2011
  * Jan Källman		License changed GPL-->LGPL 2011-12-16
  *******************************************************************************/
-using System;
 using System.Collections.Generic;
 using System.Xml;
+using OfficeOpenXml.Extensions;
 
 namespace OfficeOpenXml.Table.PivotTable
 {
 	/// <summary>
-	/// Base collection class for pivottable fields
+	/// Collection class for fields in a pivot table.
 	/// </summary>
-	/// <typeparam name="T"></typeparam>
-	public class ExcelPivotTableFieldCollectionBase<T> : IEnumerable<T>
-	{
-		protected ExcelPivotTable _table;
-		internal List<T> _list = new List<T>();
-		internal ExcelPivotTableFieldCollectionBase(ExcelPivotTable table)
-		{
-			_table = table;
-		}
-		public IEnumerator<T> GetEnumerator()
-		{
-			return _list.GetEnumerator();
-		}
-
-		System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-		{
-			return _list.GetEnumerator();
-		}
-		public int Count
-		{
-			get
-			{
-				return _list.Count;
-			}
-		}
-		internal void AddInternal(T field)
-		{
-			_list.Add(field);
-		}
-		internal void Clear()
-		{
-			_list.Clear();
-		}
-		public T this[int Index]
-		{
-			get
-			{
-				if (Index < 0 || Index >= _list.Count)
-				{
-					throw (new ArgumentOutOfRangeException("Index out of range"));
-				}
-				return _list[Index];
-			}
-		}
-	}
 	public class ExcelPivotTableFieldCollection : ExcelPivotTableFieldCollectionBase<ExcelPivotTableField>
 	{
-		internal ExcelPivotTableFieldCollection(ExcelPivotTable table, string topNode) :
-			 base(table)
-		{
-
-		}
+		#region Properties
 		/// <summary>
-		/// Indexer by name
+		/// Gets the field accessed by the name.
 		/// </summary>
-		/// <param name="name"></param>
-		/// <returns></returns>
+		/// <param name="name">The name of the field.</param>
+		/// <returns>The specified field or null if it does not exist.</returns>
 		public ExcelPivotTableField this[string name]
 		{
 			get
 			{
-				foreach (var field in _list)
+				foreach (var field in this)
 				{
-					if (field.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase))
-					{
+					if (field.Name.IsEquivalentTo(name))
 						return field;
-					}
 				}
 				return null;
 			}
 		}
+		#endregion
+
+		#region Constructors
+		/// <summary>
+		/// Creates an instance of a <see cref="ExcelPivotTableFieldCollection"/>.
+		/// </summary>
+		/// <param name="namespaceManager">The namespace manager.</param>
+		/// <param name="node">The top xml node.</param>
+		/// <param name="table">The existing pivot table.</param>
+		internal ExcelPivotTableFieldCollection(XmlNamespaceManager namespaceManager, XmlNode node, ExcelPivotTable table) 
+			: base(namespaceManager, node, table) { }
+		#endregion
+
+		#region Public Methods
 		/// <summary>
 		/// Returns the date group field.
 		/// </summary>
-		/// <param name="GroupBy">The type of grouping</param>
-		/// <returns>The matching field. If none is found null is returned</returns>
-		public ExcelPivotTableField GetDateGroupField(eDateGroupBy GroupBy)
+		/// <param name="groupBy">The type of grouping.</param>
+		/// <returns>The matching field or null if none is found.</returns>
+		public ExcelPivotTableField GetDateGroupField(eDateGroupBy groupBy)
 		{
-			foreach (var fld in _list)
+			foreach (var field in this)
 			{
-				if (fld.Grouping is ExcelPivotTableFieldDateGroup && (((ExcelPivotTableFieldDateGroup)fld.Grouping).GroupBy) == GroupBy)
-				{
-					return fld;
-				}
+				if (field.Grouping is ExcelPivotTableFieldDateGroup && (((ExcelPivotTableFieldDateGroup)field.Grouping).GroupBy) == groupBy)
+					return field;
 			}
 			return null;
 		}
+
 		/// <summary>
 		/// Returns the numeric group field.
 		/// </summary>
-		/// <returns>The matching field. If none is found null is returned</returns>
+		/// <returns>The matching field or null if none is found.</returns>
 		public ExcelPivotTableField GetNumericGroupField()
 		{
-			foreach (var fld in _list)
+			foreach (var field in this)
 			{
-				if (fld.Grouping is ExcelPivotTableFieldNumericGroup)
-				{
-					return fld;
-				}
+				if (field.Grouping is ExcelPivotTableFieldNumericGroup)
+					return field;
 			}
 			return null;
 		}
-	}
-	/// <summary>
-	/// Collection class for Row and column fields in a Pivottable 
-	/// </summary>
-	public class ExcelPivotTableRowColumnFieldCollection : ExcelPivotTableFieldCollectionBase<ExcelPivotTableField>
-	{
-		internal string _topNode;
-		internal ExcelPivotTableRowColumnFieldCollection(ExcelPivotTable table, string topNode) :
-			 base(table)
-		{
-			_topNode = topNode;
-		}
 
 		/// <summary>
-		/// Add a new row/column field
+		/// Adds the specified <paramref name="field"/> to the collection.
 		/// </summary>
-		/// <param name="Field">The field</param>
-		/// <returns>The new field</returns>
-		public ExcelPivotTableField Add(ExcelPivotTableField Field)
+		/// <param name="field">The field being added.</param>
+		/// <remarks>This does not add the field to the XML.</remarks>
+		public void Add(ExcelPivotTableField field)
 		{
-			SetFlag(Field, true);
-			_list.Add(Field);
-			return Field;
+			base.AddItem(field);
 		}
+		#endregion
+
+		#region ExcelPivotTableFieldCollectionBase Overrides
 		/// <summary>
-		/// Insert a new row/column field
+		/// Loads all the <see cref="ExcelPivotTableFieldItem"/> from the xml document.
 		/// </summary>
-		/// <param name="Field">The field</param>
-		/// <param name="Index">The position to insert the field</param>
-		/// <returns>The new field</returns>
-		internal ExcelPivotTableField Insert(ExcelPivotTableField Field, int Index)
+		/// <returns>The collection of <see cref="ExcelPivotTableFieldItem"/>s.</returns>
+		protected override List<ExcelPivotTableField> LoadItems()
 		{
-			SetFlag(Field, true);
-			_list.Insert(Index, Field);
-			return Field;
-		}
-		private void SetFlag(ExcelPivotTableField field, bool value)
-		{
-			switch (_topNode)
+			var collection = new List<ExcelPivotTableField>();
+			int index = 0;
+			foreach (XmlNode fieldNode in base.TopNode.SelectNodes("d:pivotField", base.NameSpaceManager))
 			{
-				case "rowFields":
-					if (field.IsColumnField || field.IsPageField)
-					{
-						throw (new Exception("This field is a column or page field. Can't add it to the RowFields collection"));
-					}
-					field.IsRowField = value;
-					field.Axis = ePivotFieldAxis.Row;
-					break;
-				case "colFields":
-					if (field.IsRowField || field.IsPageField)
-					{
-						throw (new Exception("This field is a row or page field. Can't add it to the ColumnFields collection"));
-					}
-					field.IsColumnField = value;
-					field.Axis = ePivotFieldAxis.Column;
-					break;
-				case "pageFields":
-					if (field.IsColumnField || field.IsRowField)
-					{
-						throw (new Exception("Field is a column or row field. Can't add it to the PageFields collection"));
-					}
-					if (_table.Address._fromRow < 3)
-					{
-						throw (new Exception(string.Format("A pivot table with page fields must be located above row 3. Currenct location is {0}", _table.Address.Address)));
-					}
-					field.IsPageField = value;
-					field.Axis = ePivotFieldAxis.Page;
-					break;
-				case "dataFields":
-
-					break;
+				var field = new ExcelPivotTableField(base.NameSpaceManager, fieldNode, base.PivotTable, index, index++);
+				collection.Add(field);
 			}
+			return collection;
 		}
-		/// <summary>
-		/// Remove a field
-		/// </summary>
-		/// <param name="Field"></param>
-		public void Remove(ExcelPivotTableField Field)
-		{
-			if (!_list.Contains(Field))
-			{
-				throw new ArgumentException("Field not in collection");
-			}
-			SetFlag(Field, false);
-			_list.Remove(Field);
-		}
-		/// <summary>
-		/// Remove a field at a specific position
-		/// </summary>
-		/// <param name="Index"></param>
-		public void RemoveAt(int Index)
-		{
-			if (Index > -1 && Index < _list.Count)
-			{
-				throw (new IndexOutOfRangeException());
-			}
-			SetFlag(_list[Index], false);
-			_list.RemoveAt(Index);
-		}
-	}
-	/// <summary>
-	/// Collection class for data fields in a Pivottable 
-	/// </summary>
-	public class ExcelPivotTableDataFieldCollection : ExcelPivotTableFieldCollectionBase<ExcelPivotTableDataField>
-	{
-		internal ExcelPivotTableDataFieldCollection(ExcelPivotTable table) :
-			 base(table)
-		{
-
-		}
-		/// <summary>
-		/// Add a new datafield
-		/// </summary>
-		/// <param name="field">The field</param>
-		/// <returns>The new datafield</returns>
-		public ExcelPivotTableDataField Add(ExcelPivotTableField field)
-		{
-			var dataFieldsNode = field.TopNode.SelectSingleNode("../../d:dataFields", field.NameSpaceManager);
-			if (dataFieldsNode == null)
-			{
-				_table.CreateNode("d:dataFields");
-				dataFieldsNode = field.TopNode.SelectSingleNode("../../d:dataFields", field.NameSpaceManager);
-			}
-
-			XmlElement node = _table.PivotTableXml.CreateElement("dataField", ExcelPackage.schemaMain);
-			node.SetAttribute("fld", field.Index.ToString());
-			dataFieldsNode.AppendChild(node);
-
-			//XmlElement node = field.AppendField(dataFieldsNode, field.Index, "dataField", "fld");
-			field.SetXmlNodeBool("@dataField", true, false);
-
-			var dataField = new ExcelPivotTableDataField(field.NameSpaceManager, node, field);
-			ValidateDupName(dataField);
-
-			_list.Add(dataField);
-			return dataField;
-		}
-		private void ValidateDupName(ExcelPivotTableDataField dataField)
-		{
-			if (ExistsDfName(dataField.Field.Name, null))
-			{
-				var index = 2;
-				string name;
-				do
-				{
-					name = dataField.Field.Name + "_" + index++.ToString();
-				}
-				while (ExistsDfName(name, null));
-				dataField.Name = name;
-			}
-		}
-
-		internal bool ExistsDfName(string name, ExcelPivotTableDataField datafield)
-		{
-			foreach (var df in _list)
-			{
-				if (((!string.IsNullOrEmpty(df.Name) && df.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase) ||
-					  (string.IsNullOrEmpty(df.Name) && df.Field.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase)))) && datafield != df)
-				{
-					return true;
-				}
-			}
-			return false;
-		}
-		/// <summary>
-		/// Remove a datafield
-		/// </summary>
-		/// <param name="dataField"></param>
-		public void Remove(ExcelPivotTableDataField dataField)
-		{
-			XmlElement node = dataField.Field.TopNode.SelectSingleNode(string.Format("../../d:dataFields/d:dataField[@fld={0}]", dataField.Index), dataField.NameSpaceManager) as XmlElement;
-			if (node != null)
-			{
-				node.ParentNode.RemoveChild(node);
-			}
-			_list.Remove(dataField);
-		}
+		#endregion
 	}
 }

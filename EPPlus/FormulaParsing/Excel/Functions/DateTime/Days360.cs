@@ -27,6 +27,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using OfficeOpenXml.Extensions;
 using OfficeOpenXml.FormulaParsing.ExpressionGraph;
 using OfficeOpenXml.Utils;
 
@@ -59,12 +60,12 @@ namespace OfficeOpenXml.FormulaParsing.Excel.Functions.DateTime
 				startDateObj = 0;
 			if (endDateObj == null)
 				endDateObj = 0;
-			if (!ConvertUtil.TryParseDateObjectToOADate(startDateObj, out double startOADate) ||
-				!ConvertUtil.TryParseDateObjectToOADate(endDateObj, out double endOADate))
+			if (!ConvertUtil.TryParseObjectToDecimal(startDateObj, out double startOADate) ||
+				!ConvertUtil.TryParseObjectToDecimal(endDateObj, out double endOADate))
 				return new CompileResult(eErrorType.Value);
 			if (startOADate < 0 || endOADate < 0)
 				return new CompileResult(eErrorType.Num);
-			// The startOADate and endOADate provided by TryParseDateObjectToOADate are Excel OADates;
+			// The startOADate and endOADate provided by TryParseObjectToDecimal are Excel OADates;
 			// they need to be converted back to System.DateTime OADates for the special case
 			// of dates before 3/1/1900 (OADate 61 in both Excel and System.DateTime).
 			if (startOADate < 61 && startOADate > 0)
@@ -79,7 +80,7 @@ namespace OfficeOpenXml.FormulaParsing.Excel.Functions.DateTime
 				var european = false;
 				if (arguments.ElementAt(2).Value is string stringVal)
 				{
-					if (!stringVal.Equals("true", System.StringComparison.CurrentCultureIgnoreCase) && !stringVal.Equals("false", System.StringComparison.CurrentCultureIgnoreCase))
+					if (!stringVal.IsEquivalentTo("true") && !stringVal.IsEquivalentTo("false"))
 						return new CompileResult(eErrorType.Value);
 				}
 				if (arguments.ElementAt(2).Value is string && ConvertUtil.TryParseNumericString(arguments.ElementAt(2).Value, out double val))
@@ -90,7 +91,7 @@ namespace OfficeOpenXml.FormulaParsing.Excel.Functions.DateTime
 				}
 				else
 				{
-					european = this.ArgToBool(arguments, 2);
+					european = this.ArgToBool(arguments.ElementAt(2));
 					if (arguments.ElementAt(2).Value is int intval && intval > 0)
 						european = true;
 				}

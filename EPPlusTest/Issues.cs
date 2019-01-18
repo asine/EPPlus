@@ -31,6 +31,21 @@ namespace EPPlusTest
 				Directory.CreateDirectory(@"c:\Temp\bug");
 			}
 		}
+
+		[TestMethod]
+		public void Issue73646FromMattWilson()
+		{
+			using (var package = new ExcelPackage())
+			{
+				var ws = package.Workbook.Worksheets.Add("Test");
+				ws.Cells["C8"].Formula = "CONCATENATE(1.1)";
+				ws.Cells["C9"].Formula = "CONCATENATE(C8+0.1)";
+				ws.Calculate();
+				Assert.AreEqual("1.1", ws.Cells["C8"].Value);
+				Assert.AreEqual("1.2", ws.Cells["C9"].Value);
+			}
+		}
+
 		[TestMethod, Ignore]
 		public void Issue15052()
 		{
@@ -59,6 +74,7 @@ namespace EPPlusTest
 				ws.Dispose();
 			}
 		}
+
 		[TestMethod]
 		public void Issue15031()
 		{
@@ -751,6 +767,7 @@ namespace EPPlusTest
 		/**** Pivottable issue ****/
 		public void Issue()
 		{
+			// TODO (Task #8178): Fix grouping/test.
 			DirectoryInfo outputDir = new DirectoryInfo(@"c:\ExcelPivotTest");
 			FileInfo MyFile = new FileInfo(@"c:\temp\bug\pivottable.xlsx");
 			LoadData(MyFile);
@@ -841,7 +858,7 @@ namespace EPPlusTest
 				var wsAuditPivot = ep.Workbook.Worksheets.Add("Pivot1");
 
 				var pivotTable1 = wsAuditPivot.PivotTables.Add(wsAuditPivot.Cells["A7:C30"], data, "PivotAudit1");
-				pivotTable1.ColumGrandTotals = true;
+				pivotTable1.ColumnGrandTotals = true;
 				var rowField = pivotTable1.RowFields.Add(pivotTable1.Fields["INVOICE_DATE"]);
 
 
@@ -880,7 +897,7 @@ namespace EPPlusTest
 				var wsAuditPivot = ep.Workbook.Worksheets.Add("Pivot2");
 
 				var pivotTable1 = wsAuditPivot.PivotTables.Add(wsAuditPivot.Cells["A7:C30"], data, "PivotAudit2");
-				pivotTable1.ColumGrandTotals = true;
+				pivotTable1.ColumnGrandTotals = true;
 				var rowField = pivotTable1.RowFields.Add(pivotTable1.Fields["INVOICE_DATE"]);
 
 
@@ -976,7 +993,7 @@ namespace EPPlusTest
 		{
 			using (var exfile = new ExcelPackage(new FileInfo(@"c:\temp\bug\dotinname.xlsx")))
 			{
-				var v = exfile.Workbook.Worksheets["sheet1.3"].Names["Test.Name"].Value;
+				var v = exfile.Workbook.Worksheets["sheet1.3"].Names["Test.Name"].NameFormula;
 				Assert.AreEqual(v, 1);
 			}
 		}
@@ -1349,7 +1366,7 @@ namespace EPPlusTest
 				sheet1.Cells["A3"].Formula = "myName3";
 
 				sheet2.InsertRow(2, 2);
-				Assert.AreEqual("'Sheet2'!$A$5", package.Workbook.Names.Last().Address);
+				Assert.AreEqual("'Sheet2'!$A$5", package.Workbook.Names.Last().NameFormula);
 
 			}
 		}

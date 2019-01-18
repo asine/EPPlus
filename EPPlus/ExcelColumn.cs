@@ -81,7 +81,7 @@ namespace OfficeOpenXml
 					throw new Exception("ColumnMax out of range");
 				}
 
-				var cse = CellStoreEnumeratorFactory<ExcelCoreValue>.GetNewEnumerator(_worksheet._values, 0, 0, 0, ExcelPackage.MaxColumns);
+				var cse = _worksheet._values.GetEnumerator(0, 0, 0, ExcelPackage.MaxColumns);
 				while (cse.MoveNext())
 				{
 					var c = cse.Value._value as ExcelColumn;
@@ -257,7 +257,7 @@ namespace OfficeOpenXml
 			}
 			set
 			{
-				_worksheet.MergedCells.Add(new ExcelAddressBase(1, ColumnMin, ExcelPackage.MaxRows, ColumnMax), true);
+				_worksheet.MergedCells.Add(new ExcelAddress(1, ColumnMin, ExcelPackage.MaxRows, ColumnMax), true);
 			}
 		}
 		#endregion

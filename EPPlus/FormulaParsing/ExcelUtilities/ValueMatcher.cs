@@ -36,11 +36,23 @@ namespace OfficeOpenXml.FormulaParsing.ExcelUtilities
 {
 	public class ValueMatcher
 	{
+		#region Private Properties
 		private ArgumentParsers _argumentParsers { get; } = new ArgumentParsers();
+		#endregion
 
-		public const int IncompatibleOperands = -2;
-
-		public virtual int IsMatch(object o1, object o2)
+		#region Public Methods
+		/// <summary>
+		/// Compares the values of <paramref name="o1"/> and <paramref name="o2"/>.
+		/// </summary>
+		/// <param name="o1">The first object.</param>
+		/// <param name="o2">The second object.</param>
+		/// <returns>
+		///	A negative integer if the first object is less than the second, 
+		///	a positive integer if the first object is greater than the second, 
+		///	0 if the two objects are equivalent,
+		///	null if the two objects cannot be compared because of incompatible types.
+		/// </returns>
+		public virtual int? IsMatch(object o1, object o2)
 		{
 			if (o1 != null && o2 == null) return 1;
 			if (o1 == null && o2 != null) return -1;
@@ -65,34 +77,17 @@ namespace OfficeOpenXml.FormulaParsing.ExcelUtilities
 				return o1d.CompareTo(o2d);
 			}
 			catch { /* Ignore any parse errors that may have occurred. */}
-			return ValueMatcher.IncompatibleOperands;
+			return null;
 		}
+		#endregion
 
-		private static object CheckGetRange(object v)
-		{
-			if (v is ExcelDataProvider.IRangeInfo)
-			{
-				var r = ((ExcelDataProvider.IRangeInfo)v);
-				if (r.GetNCells() > 1)
-				{
-					v = ExcelErrorValue.Create(eErrorType.NA);
-				}
-				v = r.GetOffset(0, 0);
-			}
-			else if (v is ExcelDataProvider.INameInfo)
-			{
-				var n = ((ExcelDataProvider.INameInfo)v);
-				v = CheckGetRange(n);
-			}
-			return v;
-		}
-
-		protected virtual int CompareStringToString(string s1, string s2)
+		#region Protected Methods
+		protected virtual int? CompareStringToString(string s1, string s2)
 		{
 			return s1.CompareTo(s2);
 		}
 
-		protected virtual int CompareStringToObject(string o1, object o2)
+		protected virtual int? CompareStringToObject(string o1, object o2)
 		{
 			double d1;
 			if (double.TryParse(o1, out d1))
@@ -109,10 +104,10 @@ namespace OfficeOpenXml.FormulaParsing.ExcelUtilities
 			DateTime dt1, dt2;
 			if (DateTime.TryParse(o1, out dt1) && DateTime.TryParse(o2.ToString(), out dt2))
 				return dt1.CompareTo(dt2);
-			return ValueMatcher.IncompatibleOperands;
+			return null;
 		}
 
-		protected virtual int CompareObjectToString(object o1, string o2)
+		protected virtual int? CompareObjectToString(object o1, string o2)
 		{
 			double d2;
 			if (double.TryParse(o2, out d2))
@@ -129,8 +124,29 @@ namespace OfficeOpenXml.FormulaParsing.ExcelUtilities
 			DateTime dt1, dt2;
 			if (DateTime.TryParse(o1.ToString(), out dt1) && DateTime.TryParse(o2, out dt2))
 				return dt1.CompareTo(dt2);
-			return ValueMatcher.IncompatibleOperands;
+			return null;
 		}
+		#endregion
 
+		#region Private Methods
+		private static object CheckGetRange(object v)
+		{
+			if (v is ExcelDataProvider.IRangeInfo)
+			{
+				var r = ((ExcelDataProvider.IRangeInfo)v);
+				if (r.GetTotalCellCount() > 1)
+				{
+					v = ExcelErrorValue.Create(eErrorType.NA);
+				}
+				v = r.GetOffset(0, 0);
+			}
+			else if (v is ExcelDataProvider.INameInfo)
+			{
+				var n = ((ExcelDataProvider.INameInfo)v);
+				v = CheckGetRange(n);
+			}
+			return v;
+		}
+		#endregion
 	}
 }

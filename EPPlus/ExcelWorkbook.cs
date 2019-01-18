@@ -32,7 +32,6 @@
  *******************************************************************************/
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Xml;
@@ -40,6 +39,8 @@ using OfficeOpenXml.Drawing.Slicers;
 using OfficeOpenXml.FormulaParsing;
 using OfficeOpenXml.FormulaParsing.LexicalAnalysis;
 using OfficeOpenXml.Packaging.Ionic.Zip;
+using OfficeOpenXml.Table;
+using OfficeOpenXml.Table.PivotTable;
 using OfficeOpenXml.Utils;
 using OfficeOpenXml.VBA;
 
@@ -95,10 +96,10 @@ namespace OfficeOpenXml
 		private ExcelWorksheets _worksheets;
 		private OfficeProperties _properties;
 		private ExcelStyles _styles;
-		private ExcelNamedRangeCollection _names;
 		private FormulaParser _formulaParser = null;
 		private FormulaParserManager _parserManager;
-		private List<ExcelSlicerCache> _slicerCaches;
+		private List<ExcelSlicerCache> mySlicerCaches;
+		private List<ExcelPivotCacheDefinition> myPivotCacheDefinitions;
 		private decimal _standardFontWidth = decimal.MinValue;
 		private string _fontID = "";
 		private ExcelProtection _protection = null;
@@ -107,10 +108,32 @@ namespace OfficeOpenXml
 		private XmlDocument _workbookXml;
 		private bool? date1904Cache = null;
 		private XmlDocument _stylesXml;
-		private List<string> _externalReferences = new List<string>();
 		#endregion
 
 		#region Public Properties
+		/// <summary>
+		/// Gets a list of <see cref="ExcelPivotCacheDefinition"/>.
+		/// </summary>
+		public List<ExcelPivotCacheDefinition> PivotCacheDefinitions
+		{
+			get
+			{
+				if (myPivotCacheDefinitions == null)
+				{
+					myPivotCacheDefinitions = new List<ExcelPivotCacheDefinition>();
+					var cacheDefinitions = this.Part.GetRelationshipsByType(ExcelPackage.schemaPivotCacheRelationship);
+					foreach (var cache in cacheDefinitions)
+					{
+						var pivotCacheTargetUri = $"xl/pivotCache/{UriHelper.GetUriEndTargetName(cache.TargetUri)}";
+						var uri = new Uri(pivotCacheTargetUri, UriKind.Relative);
+						var possiblePart = this.Package.GetXmlFromUri(uri);
+						myPivotCacheDefinitions.Add(new ExcelPivotCacheDefinition(this.NameSpaceManager, this.Package, possiblePart, uri));
+					}
+				}
+				return myPivotCacheDefinitions;
+			}
+		}
+
 		/// <summary>
 		/// Gets a list of the slicer caches present in this workbook.
 		/// </summary>
@@ -118,10 +141,10 @@ namespace OfficeOpenXml
 		{
 			get
 			{
-				if (this._slicerCaches == null)
+				if (mySlicerCaches == null)
 				{
 					var slicerCacheNamespaceManager = ExcelSlicer.SlicerDocumentNamespaceManager;
-					this._slicerCaches = new List<ExcelSlicerCache>();
+					mySlicerCaches = new List<ExcelSlicerCache>();
 					var slicerCaches = this.Part.GetRelationshipsByType(ExcelPackage.schemaSlicerCache);
 					foreach (var cache in slicerCaches)
 					{
@@ -129,10 +152,10 @@ namespace OfficeOpenXml
 						var uri = new Uri($"/xl/{cacheTargetUri}", UriKind.Relative);
 						var possiblePart = this.Package.GetXmlFromUri(uri);
 						var slicerCacheNode = possiblePart.SelectSingleNode("default:slicerCacheDefinition", slicerCacheNamespaceManager);
-						this._slicerCaches.Add(new ExcelSlicerCache(slicerCacheNode, slicerCacheNamespaceManager, cache.TargetUri, possiblePart));
+						mySlicerCaches.Add(new ExcelSlicerCache(slicerCacheNode, slicerCacheNamespaceManager, cache.TargetUri, possiblePart));
 					}
 				}
-				return this._slicerCaches;
+				return mySlicerCaches;
 			}
 		}
 
@@ -160,13 +183,7 @@ namespace OfficeOpenXml
 		/// <summary>
 		/// Provides access to named ranges
 		/// </summary>
-		public ExcelNamedRangeCollection Names
-		{
-			get
-			{
-				return this._names;
-			}
-		}
+		public ExcelNamedRangeCollection Names { get; }
 
 		/// <summary>
 		/// Gets the <see cref="FormulaParserManager"/> to use when parsing formulas in this workbook.
@@ -470,13 +487,18 @@ namespace OfficeOpenXml
 				}
 			}
 		}
+
+		/// <summary>
+		/// Gets the collection of external references in the workbook.
+		/// </summary>
+		public ExternalReferenceCollection ExternalReferences { get; }
 		#endregion
 
 		#region Internal Properties
 		/// <summary>
 		/// Gets or sets a cellstore containing the formula tokens on the workbook.
 		/// </summary>
-		internal CellStore<List<Token>> FormulaTokens { get; set; }
+		internal ICellStore<List<Token>> FormulaTokens { get; set; }
 
 		/// <summary>
 		/// Gets or sets the next ID number to use for a drawing.
@@ -502,12 +524,7 @@ namespace OfficeOpenXml
 		/// Gets or sets the list of shared string information. Every element in this list should also be in the SharedStrings dictionary.
 		/// </summary>
 		internal List<SharedStringItem> SharedStringsList { get; set; } = new List<SharedStringItem>(); //Used when reading cells.
-
-		/// <summary>
-		/// Gets a list of external references in the workbook.
-		/// </summary>
-		internal List<string> ExternalReferences { get { return this._externalReferences; } }
-
+		
 		/// <summary>
 		/// Gets the <see cref="ExcelPackage"/> that this workbook belongs to.
 		/// </summary>
@@ -568,7 +585,7 @@ namespace OfficeOpenXml
 			}
 		}
 		#endregion
-
+		
 		#region Constructors
 		/// <summary>
 		/// Creates a new instance of the ExcelWorkbook class.
@@ -583,12 +600,15 @@ namespace OfficeOpenXml
 			this.SharedStringsUri = new Uri("/xl/sharedStrings.xml", UriKind.Relative);
 			this.StylesUri = new Uri("/xl/styles.xml", UriKind.Relative);
 
-			this._names = new ExcelNamedRangeCollection(this);
+			this.Names = new ExcelNamedRangeCollection(this);
 			this.NameSpaceManager = namespaceManager;
 			this.TopNode = this.WorkbookXml.DocumentElement;
 			this.SchemaNodeOrder = new string[] { "fileVersion", "fileSharing", "workbookPr", "workbookProtection", "bookViews", "sheets", "functionGroups", "functionPrototypes", "externalReferences", "definedNames", "calcPr", "oleSize", "customWorkbookViews", "pivotCaches", "smartTagPr", "smartTagTypes", "webPublishing", "fileRecoveryPr", };
 			this.FullCalcOnLoad = true;  //Full calculation on load by default, for both new workbooks and templates.
 			this.GetSharedStrings();
+			var node = this.WorkbookXml.SelectSingleNode("//d:externalReferences", this.NameSpaceManager);
+			if (node != null)
+				this.ExternalReferences = new ExternalReferenceCollection(this.ResolveExternalReference, node, this.NameSpaceManager);
 		}
 		#endregion
 
@@ -641,107 +661,23 @@ namespace OfficeOpenXml
 		#endregion
 
 		#region Internal Methods
+		/// <summary>
+		/// Loads the defined names from the workbook XML.
+		/// </summary>
 		internal void GetDefinedNames()
 		{
-			XmlNodeList nl = this.WorkbookXml.SelectNodes("//d:definedNames/d:definedName", NameSpaceManager);
-			if (nl != null)
+			XmlNodeList nodeList = this.WorkbookXml.SelectNodes("//d:definedNames/d:definedName", this.NameSpaceManager);
+			if (nodeList != null)
 			{
-				foreach (XmlElement elem in nl)
+				foreach (XmlElement elem in nodeList)
 				{
-					string fullAddress = elem.InnerText;
-
-					int localSheetID;
-					ExcelWorksheet nameWorksheet;
-					if (!int.TryParse(elem.GetAttribute("localSheetId"), out localSheetID))
-					{
-						localSheetID = -1;
-						nameWorksheet = null;
-					}
+					string nameFormula = elem.InnerText;
+					string comment = elem.GetAttribute("comment");
+					bool isHidden = elem.GetAttribute("hidden") == "1";
+					if (int.TryParse(elem.GetAttribute("localSheetId"), out int localSheetID))
+						this.Worksheets[localSheetID + 1].Names.Add(elem.GetAttribute("name"), nameFormula, isHidden, comment);
 					else
-					{
-						nameWorksheet = Worksheets[localSheetID + 1];
-					}
-					var addressType = ExcelAddressBase.IsValid(fullAddress);
-					ExcelRangeBase range;
-					ExcelNamedRange namedRange;
-
-					if (fullAddress.IndexOf("[") == 0)
-					{
-						int start = fullAddress.IndexOf("[");
-						int end = fullAddress.IndexOf("]", start);
-						if (start >= 0 && end >= 0)
-						{
-
-							string externalIndex = fullAddress.Substring(start + 1, end - start - 1);
-							int index;
-							if (int.TryParse(externalIndex, out index))
-							{
-								if (index > 0 && index <= _externalReferences.Count)
-								{
-									fullAddress = fullAddress.Substring(0, start) + "[" + _externalReferences[index - 1] + "]" + fullAddress.Substring(end + 1);
-								}
-							}
-						}
-					}
-
-					if (addressType == ExcelAddressBase.AddressType.Invalid || addressType == ExcelAddressBase.AddressType.InternalName || addressType == ExcelAddressBase.AddressType.ExternalName || addressType == ExcelAddressBase.AddressType.Formula || addressType == ExcelAddressBase.AddressType.ExternalAddress)    //A value or a formula
-					{
-						double value;
-						range = new ExcelRangeBase(this, nameWorksheet, elem.GetAttribute("name"), true);
-						if (nameWorksheet == null)
-						{
-							namedRange = this.Names.Add(elem.GetAttribute("name"), range);
-						}
-						else
-						{
-							namedRange = nameWorksheet.Names.Add(elem.GetAttribute("name"), range);
-						}
-
-						if (Utils.ConvertUtil._invariantCompareInfo.IsPrefix(fullAddress, "\"")) //String value
-						{
-							namedRange.NameValue = fullAddress.Substring(1, fullAddress.Length - 2);
-						}
-						else if (double.TryParse(fullAddress, NumberStyles.Any, CultureInfo.InvariantCulture, out value))
-						{
-							namedRange.NameValue = value;
-						}
-						else
-						{
-							if (addressType == ExcelAddressBase.AddressType.ExternalAddress || addressType == ExcelAddressBase.AddressType.ExternalName)
-							{
-								var r = new ExcelAddress(fullAddress);
-								string workbook = r._wb.StartsWith("file:///", StringComparison.InvariantCultureIgnoreCase) ? r._wb.Substring(8) : r._wb;
-								// External workbook addresses are always fully qualified with a workbook, worksheet, and address.
-								namedRange.NameFormula = "'[" + workbook + "]" + r.WorkSheet + "'" + r.Address.Substring(r.Address.LastIndexOf('!'));
-							}
-							else
-							{
-								namedRange.NameFormula = fullAddress;
-							}
-						}
-					}
-					else
-					{
-						ExcelAddress addr = new ExcelAddress(fullAddress, Package, null);
-						if (localSheetID > -1)
-						{
-							if (string.IsNullOrEmpty(addr._ws))
-							{
-								namedRange = Worksheets[localSheetID + 1].Names.Add(elem.GetAttribute("name"), new ExcelRangeBase(this, Worksheets[localSheetID + 1], fullAddress, false));
-							}
-							else
-							{
-								namedRange = Worksheets[localSheetID + 1].Names.Add(elem.GetAttribute("name"), new ExcelRangeBase(this, Worksheets[addr._ws], fullAddress, false));
-							}
-						}
-						else
-						{
-							var ws = Worksheets[addr._ws];
-							namedRange = this.Names.Add(elem.GetAttribute("name"), new ExcelRangeBase(this, ws, fullAddress, false));
-						}
-					}
-					if (elem.GetAttribute("hidden") == "1" && namedRange != null) namedRange.IsNameHidden = true;
-					if (!string.IsNullOrEmpty(elem.GetAttribute("comment"))) namedRange.NameComment = elem.GetAttribute("comment");
+						this.Names.Add(elem.GetAttribute("name"), nameFormula, isHidden, comment);
 				}
 			}
 		}
@@ -761,6 +697,13 @@ namespace OfficeOpenXml
 				throw new InvalidOperationException("The workbook must contain at least one worksheet");
 
 			this.DeleteCalcChain();
+
+			// An empty <externalReferences /> node corrupts the workbook.
+			if (this.ExternalReferences?.References.Count == 0)
+			{
+				var document = this.ExternalReferences.TopNode.ParentNode;
+				document.RemoveChild(this.ExternalReferences.TopNode);
+			}
 
 			if (this._vba == null && !this.Package.Package.PartExists(new Uri(ExcelVbaProject.PartUri, UriKind.Relative)))
 			{
@@ -789,6 +732,12 @@ namespace OfficeOpenXml
 			foreach (var slicerCache in this.SlicerCaches)
 			{
 				slicerCache.Save(this.Package);
+			}
+
+			// Save all the pivotCacheDefinitions
+			foreach (var pivotCacheDefinition in this.PivotCacheDefinitions)
+			{
+				pivotCacheDefinition.Save();
 			}
 
 			// save the properties of the workbook
@@ -857,6 +806,23 @@ namespace OfficeOpenXml
 		}
 
 		/// <summary>
+		/// Gets the table with the given <paramref name="name"/>.
+		/// </summary>
+		/// <param name="name">The name of the table to retrieve.</param>
+		/// <returns>The table if it was found; otherwise null.</returns>
+		internal ExcelTable GetTable(string name)
+		{
+			foreach (var ws in this.Worksheets)
+			{
+				if (ws.Tables.TableNames.ContainsKey(name))
+				{
+					return ws.Tables[name];
+				}
+			}
+			return null;
+		}
+
+		/// <summary>
 		/// Determine if a PivotTable with the specified <paramref name="name"/> exists.
 		/// </summary>
 		/// <param name="name">The table name to check for.</param>
@@ -865,7 +831,7 @@ namespace OfficeOpenXml
 		{
 			foreach (var ws in this.Worksheets)
 			{
-				if (ws.PivotTables._pivotTableNames.ContainsKey(name))
+				if (ws.PivotTables.myPivotTableNames.ContainsKey(name))
 				{
 					return true;
 				}
@@ -890,38 +856,7 @@ namespace OfficeOpenXml
 			var pivotCaches = this.WorkbookXml.SelectSingleNode("//d:pivotCaches", NameSpaceManager);
 			pivotCaches.AppendChild(item);
 		}
-
-		/// <summary>
-		/// Initialize the _externalReferences object.
-		/// </summary>
-		internal void GetExternalReferences()
-		{
-			XmlNodeList nl = this.WorkbookXml.SelectNodes("//d:externalReferences/d:externalReference", NameSpaceManager);
-			if (nl != null)
-			{
-				foreach (XmlElement elem in nl)
-				{
-					string rID = elem.GetAttribute("r:id");
-					var rel = this.Part.GetRelationship(rID);
-					var part = this.Package.Package.GetPart(UriHelper.ResolvePartUri(rel.SourceUri, rel.TargetUri));
-					XmlDocument xmlExtRef = new XmlDocument();
-					LoadXmlSafe(xmlExtRef, part.GetStream());
-
-					XmlElement book = xmlExtRef.SelectSingleNode("//d:externalBook", NameSpaceManager) as XmlElement;
-					if (book != null)
-					{
-						string rId_ExtRef = book.GetAttribute("r:id");
-						var rel_extRef = part.GetRelationship(rId_ExtRef);
-						if (rel_extRef != null)
-						{
-							this._externalReferences.Add(rel_extRef.TargetUri.OriginalString);
-						}
-
-					}
-				}
-			}
-		}
-
+		
 		/// <summary>
 		/// Determine the next Table and PivotTable ID numbers.
 		/// </summary>
@@ -1123,7 +1058,7 @@ namespace OfficeOpenXml
 					{
 						top.RemoveAll();
 					}
-					foreach (ExcelNamedRange name in _names)
+					foreach (ExcelNamedRange name in this.Names)
 					{
 
 						XmlElement elem = this.WorkbookXml.CreateElement("definedName", ExcelPackage.schemaMain);
@@ -1163,32 +1098,9 @@ namespace OfficeOpenXml
 
 		private void SetNameElement(ExcelNamedRange name, XmlElement elem)
 		{
-			if (name.IsName)
-			{
-				if (string.IsNullOrEmpty(name.NameFormula))
-				{
-					if ((name.NameValue.GetType().IsPrimitive || name.NameValue is double || name.NameValue is decimal))
-					{
-						elem.InnerText = Convert.ToDouble(name.NameValue, CultureInfo.InvariantCulture).ToString("R15", CultureInfo.InvariantCulture);
-					}
-					else if (name.NameValue is DateTime)
-					{
-						elem.InnerText = ((DateTime)name.NameValue).ToOADate().ToString(CultureInfo.InvariantCulture);
-					}
-					else
-					{
-						elem.InnerText = "\"" + name.NameValue.ToString() + "\"";
-					}
-				}
-				else
-				{
-					elem.InnerText = name.NameFormula;
-				}
-			}
-			else
-			{
-				elem.InnerText = name.FullAddress;
-			}
+			if (string.IsNullOrEmpty(name.NameFormula))
+				throw new InvalidOperationException("Named range formulas cannot be blank.");
+			elem.InnerText = name.NameFormula;
 		}
 
 		/// <summary>
@@ -1213,6 +1125,23 @@ namespace OfficeOpenXml
 				return true;
 			}
 			return false;
+		}
+
+		private string ResolveExternalReference(string referenceId)
+		{
+			var rel = this.Part.GetRelationship(referenceId);
+			var part = this.Package.Package.GetPart(UriHelper.ResolvePartUri(rel.SourceUri, rel.TargetUri));
+			XmlDocument xmlExtRef = new XmlDocument();
+			LoadXmlSafe(xmlExtRef, part.GetStream());
+			XmlElement book = xmlExtRef.SelectSingleNode("//d:externalBook", NameSpaceManager) as XmlElement;
+			if (book != null)
+			{
+				string rId_ExtRef = book.GetAttribute("r:id");
+				var rel_extRef = part.GetRelationship(rId_ExtRef);
+				if (rel_extRef != null)
+					return rel_extRef.TargetUri.OriginalString;
+			}
+			return null;
 		}
 		#endregion
 

@@ -35,6 +35,14 @@ namespace OfficeOpenXml.FormulaParsing.Excel.Functions.RefAndLookup
 	/// </summary>
 	public class Row : LookupFunction
 	{
+		#region LookupFunction Members
+		/// <summary>
+		/// Gets a value representing the indicies of the arguments to the lookup function that
+		/// should be compiled as ExcelAddresses instead of being evaluated.
+		/// </summary>
+		public override List<int> LookupArgumentIndicies { get; } = new List<int> { 0 };
+		#endregion
+
 		#region Public ExcelFunction overrides
 		/// <summary>
 		/// Calculates the row of either the given range or the column that the function is executed in.
@@ -44,16 +52,14 @@ namespace OfficeOpenXml.FormulaParsing.Excel.Functions.RefAndLookup
 		/// <returns>Returns a <see cref="CompileResult"/> containing either the resulting row or an error value.</returns>
 		public override CompileResult Execute(IEnumerable<FunctionArgument> arguments, ParsingContext context)
 		{
-			string rangeAddress = arguments.Count() == 0 ? string.Empty : this.ArgToString(arguments, 0);
-			if (arguments == null || arguments.Count() == 0 || string.IsNullOrEmpty(rangeAddress))
+			var rangeAddress = arguments.Count() == 0 ? null : arguments.ElementAt(0).ValueAsRangeInfo?.Address;
+			if (arguments == null || arguments.Count() == 0 || rangeAddress == null)
 			{
 				return CreateResult(context.Scopes.Current.Address.FromRow, DataType.Integer);
 			}
-			if (!ExcelAddressUtil.IsValidAddress(rangeAddress))
+			if (!ExcelAddressUtil.IsValidAddress(rangeAddress.Address))
 				return new CompileResult(eErrorType.Value);
-			var factory = new RangeAddressFactory(context.ExcelDataProvider);
-			var address = factory.Create(rangeAddress);
-			return CreateResult(address.FromRow, DataType.Integer);
+			return CreateResult(rangeAddress._fromRow, DataType.Integer);
 		}
 		#endregion
 	}

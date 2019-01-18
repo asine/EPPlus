@@ -31,59 +31,116 @@
  *******************************************************************************/
 using System;
 using System.Xml;
+using OfficeOpenXml.Utils;
 
 namespace OfficeOpenXml.Table.PivotTable
 {
 	/// <summary>
 	/// A field Item. Used for grouping
 	/// </summary>
-	public class ExcelPivotTableFieldItem : XmlHelper
+	public class ExcelPivotTableFieldItem : XmlCollectionItemBase
 	{
-		ExcelPivotTableField _field;
-		internal ExcelPivotTableFieldItem(XmlNamespaceManager ns, XmlNode topNode, ExcelPivotTableField field) :
-			 base(ns, topNode)
-		{
-			_field = field;
-		}
+		#region Class Variables
+		private ExcelPivotTableField myField;
+		#endregion
+
+		#region Properties
 		/// <summary>
-		/// The text. Unique values only
+		/// Gets or sets the text with unique values only.
 		/// </summary>
 		public string Text
 		{
 			get
 			{
-				return GetXmlNodeString("@n");
+				return base.GetXmlNodeString("@n");
 			}
 			set
 			{
 				if (string.IsNullOrEmpty(value))
 				{
-					DeleteNode("@n");
+					base.DeleteNode("@n");
 					return;
 				}
-				foreach (var item in _field.Items)
+				foreach (var item in myField.Items)
 				{
 					if (item.Text == value)
-					{
 						throw (new ArgumentException("Duplicate Text"));
-					}
 				}
-				SetXmlNodeString("@n", value);
+				base.SetXmlNodeString("@n", value);
 			}
 		}
+
+		/// <summary>
+		/// Gets or sets the reference values.
+		/// </summary>
 		internal int X
 		{
-			get
-			{
-				return GetXmlNodeInt("@x");
-			}
+			get { return base.GetXmlNodeInt("@x"); }
+			set { base.SetXmlNodeString("@x", value.ToString()); }
 		}
+
+		/// <summary>
+		/// Gets the grand total value.
+		/// </summary>
 		internal string T
 		{
-			get
-			{
-				return GetXmlNodeString("@t");
-			}
+			get { return base.GetXmlNodeString("@t"); }
 		}
+
+		/// <summary>
+		/// Gets or sets whether or not the item is hidden.
+		/// </summary>
+		/// <remarks>Corresponds to the "h" attribute.</remarks>
+		internal bool Hidden
+		{
+			get { return base.GetXmlNodeBool("@h", false); }
+			set { base.SetXmlNodeBool("@h", value, false); }
+		}
+		#endregion
+
+		#region Constructors
+		/// <summary>
+		/// Creates an instance of a <see cref="ExcelPivotTableFieldItem"/>.
+		/// </summary>
+		/// <param name="namespaceManager">The namespace of the worksheet.</param>
+		/// <param name="topNode">The xml top node.</param>
+		/// <param name="field">The pivot table field.</param>
+		internal ExcelPivotTableFieldItem(XmlNamespaceManager namespaceManager, XmlNode topNode, ExcelPivotTableField field) :
+			 base(namespaceManager, topNode)
+		{
+			if (namespaceManager == null)
+				throw new ArgumentNullException(nameof(namespaceManager));
+			if (topNode == null)
+				throw new ArgumentNullException(nameof(topNode));
+			if (field == null)
+				throw new ArgumentNullException(nameof(field));
+			myField = field;
+		}
+
+		/// <summary>
+		/// Creates an instance of a <see cref="ExcelPivotTableFieldItem"/>.
+		/// </summary>
+		/// <param name="namespaceManager">The namespace of the worksheet.</param>
+		/// <param name="parentNode">The xml top node.</param>
+		/// <param name="field">The pivot table field.</param>
+		/// <param name="value">The value of the 'x' attribute.</param>
+		internal ExcelPivotTableFieldItem(XmlNamespaceManager namespaceManager, XmlNode parentNode, ExcelPivotTableField field, int value) :
+			 base(namespaceManager, parentNode)
+		{
+			if (namespaceManager == null)
+				throw new ArgumentNullException(nameof(namespaceManager));
+			if (parentNode == null)
+				throw new ArgumentNullException(nameof(parentNode));
+			if (field == null)
+				throw new ArgumentNullException(nameof(field));
+			if (value < 0)
+				throw new ArgumentOutOfRangeException(nameof(value));
+			myField = field;
+			base.TopNode = parentNode.OwnerDocument.CreateElement("item", parentNode.NamespaceURI);
+			var attr = parentNode.OwnerDocument.CreateAttribute("x");
+			base.TopNode.Attributes.Append(attr);
+			this.X = value;
+		}
+		#endregion
 	}
 }

@@ -16,17 +16,11 @@ namespace EPPlusTest.Excel.Functions
 	[TestClass]
 	public class RefAndLookupTests
 	{
+		#region Constants
 		const string WorksheetName = null;
+		#endregion
 
-		[TestMethod]
-		public void AddressWithTooFewArgumentsReturnsPoundValue()
-		{
-			var function = new OfficeOpenXml.FormulaParsing.Excel.Functions.RefAndLookup.Address();
-			var args = FunctionsHelper.CreateArgs("One Arg Only");
-			var result = function.Execute(args, null);
-			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)result.Result).Type);
-		}
-
+		#region LookupArguments Tests
 		[TestMethod]
 		public void LookupArgumentsShouldSetSearchedValue()
 		{
@@ -71,7 +65,7 @@ namespace EPPlusTest.Excel.Functions
 					{
 								new FunctionArgument(1),
 								new FunctionArgument("A:B", DataType.ExcelAddress),
-								new FunctionArgument("C3", DataType.ExcelAddress)
+								new FunctionArgument(new EpplusExcelDataProvider(excelPackage).GetRange("Worksheet2", 3, 3, 3, 3), DataType.Enumerable)
 						  };
 					var lookupArgs = new LookupArguments(args, parsingContext);
 					Assert.AreEqual(expectedIndex, lookupArgs.LookupIndex);
@@ -101,7 +95,7 @@ namespace EPPlusTest.Excel.Functions
 					{
 								new FunctionArgument(1),
 								new FunctionArgument("A:B", DataType.ExcelAddress),
-								new FunctionArgument("Worksheet3!C3", DataType.ExcelAddress)
+								new FunctionArgument(new EpplusExcelDataProvider(excelPackage).GetRange("Worksheet3", 3, 3, 3, 3), DataType.Enumerable)
 						  };
 					var lookupArgs = new LookupArguments(args, parsingContext);
 					Assert.AreEqual(expectedIndex, lookupArgs.LookupIndex);
@@ -124,7 +118,9 @@ namespace EPPlusTest.Excel.Functions
 			var lookupArgs = new LookupArguments(args, ParsingContext.Create());
 			Assert.IsTrue(lookupArgs.RangeLookup);
 		}
+		#endregion
 
+		#region (H/V)Lookup Tests
 		[TestMethod]
 		public void VLookupShouldReturnResultFromMatchingRow()
 		{
@@ -185,6 +181,16 @@ namespace EPPlusTest.Excel.Functions
 			parsingContext.ExcelDataProvider = provider;
 			var result = func.Execute(args, parsingContext);
 			Assert.AreEqual(1, result.Result);
+		}
+
+		[TestMethod]
+		public void VLookupWithInvalidArgumentReturnsPoundValue()
+		{
+			var func = new VLookup();
+			var parsingContext = ParsingContext.Create();
+			var args = FunctionsHelper.CreateArgs();
+			var result = func.Execute(args, parsingContext);
+			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)result.Result).Type);
 		}
 
 		[TestMethod]
@@ -253,175 +259,223 @@ namespace EPPlusTest.Excel.Functions
 		}
 
 		[TestMethod]
+		public void HLookupWithInvalidArgumentReturnsPoundValue()
+		{
+			var func = new HLookup();
+			var parsingContext = ParsingContext.Create();
+			var args = FunctionsHelper.CreateArgs();
+			var result = func.Execute(args, parsingContext);
+			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)result.Result).Type);
+		}
+
+		[TestMethod]
 		public void LookupShouldReturnResultFromMatchingRowArrayVertical()
 		{
-			var func = new Lookup();
-			var args = FunctionsHelper.CreateArgs(4, "A1:B3", 2);
-			var parsingContext = ParsingContext.Create();
-			parsingContext.Scopes.NewScope(RangeAddress.Empty);
-
-			var provider = MockRepository.GenerateStub<ExcelDataProvider>();
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 1)).Return(1);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 2)).Return("A");
-			provider.Stub(x => x.GetCellValue(WorksheetName, 2, 1)).Return(3);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 2, 2)).Return("B");
-			provider.Stub(x => x.GetCellValue(WorksheetName, 3, 1)).Return(5);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 3, 2)).Return("C");
-
-			parsingContext.ExcelDataProvider = provider;
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual("B", result.Result);
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+				worksheet.Cells[1, 1].Value = 1;
+				worksheet.Cells[1, 2].Value = "A";
+				worksheet.Cells[2, 1].Value = 3;
+				worksheet.Cells[2, 2].Value = "B";
+				worksheet.Cells[3, 1].Value = 5;
+				worksheet.Cells[3, 2].Value = "C";
+				worksheet.Cells[3, 3].Formula = "LOOKUP(4, A1:B3, 2)";
+				worksheet.Calculate();
+				Assert.AreEqual("B", worksheet.Cells[3, 3].Value);
+			}
 		}
 
 		[TestMethod]
 		public void LookupShouldReturnResultFromMatchingRowArrayHorizontal()
 		{
-			var func = new Lookup();
-			var args = FunctionsHelper.CreateArgs(4, "A1:C2", 2);
-			var parsingContext = ParsingContext.Create();
-			parsingContext.Scopes.NewScope(RangeAddress.Empty);
-
-			var provider = MockRepository.GenerateStub<ExcelDataProvider>();
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 1)).Return(1);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 2)).Return(3);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 3)).Return(5);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 2, 1)).Return("A");
-			provider.Stub(x => x.GetCellValue(WorksheetName, 2, 2)).Return("B");
-			provider.Stub(x => x.GetCellValue(WorksheetName, 2, 3)).Return("C");
-
-			parsingContext.ExcelDataProvider = provider;
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual("B", result.Result);
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+				worksheet.Cells[1, 1].Value = 1;
+				worksheet.Cells[1, 2].Value = 3;
+				worksheet.Cells[1, 3].Value = 5;
+				worksheet.Cells[2, 1].Value = "A";
+				worksheet.Cells[2, 2].Value = "B";
+				worksheet.Cells[2, 3].Value = "C";
+				worksheet.Cells[3, 3].Formula = "LOOKUP(4, A1:C2, 2)";
+				worksheet.Calculate();
+				Assert.AreEqual("B", worksheet.Cells[3, 3].Value);
+			}
 		}
 
 		[TestMethod]
 		public void LookupShouldReturnResultFromMatchingSecondArrayHorizontal()
 		{
-			var func = new Lookup();
-			var args = FunctionsHelper.CreateArgs(4, "A1:C1", "A3:C3");
-			var parsingContext = ParsingContext.Create();
-			parsingContext.Scopes.NewScope(RangeAddress.Empty);
-
-			var provider = MockRepository.GenerateStub<ExcelDataProvider>();
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 1)).Return(1);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 2)).Return(3);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 3)).Return(5);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 3, 1)).Return("A");
-			provider.Stub(x => x.GetCellValue(WorksheetName, 3, 2)).Return("B");
-			provider.Stub(x => x.GetCellValue(WorksheetName, 3, 3)).Return("C");
-
-			parsingContext.ExcelDataProvider = provider;
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual("B", result.Result);
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+				worksheet.Cells[1, 1].Value = 1;
+				worksheet.Cells[1, 2].Value = 3;
+				worksheet.Cells[1, 3].Value = 5;
+				worksheet.Cells[3, 1].Value = "A";
+				worksheet.Cells[3, 2].Value = "B";
+				worksheet.Cells[3, 3].Value = "C";
+				worksheet.Cells[5, 5].Formula = "=LOOKUP(4, A1:C1, A3:C3)";
+				worksheet.Calculate();
+				Assert.AreEqual("B", worksheet.Cells[5, 5].Value);
+			}
 		}
 
 		[TestMethod]
 		public void LookupShouldReturnResultFromMatchingSecondArrayHorizontalWithOffset()
 		{
-			var func = new Lookup();
-			var args = FunctionsHelper.CreateArgs(4, "A1:C1", "B3:D3");
-			var parsingContext = ParsingContext.Create();
-			parsingContext.Scopes.NewScope(RangeAddress.Empty);
-
-			var provider = MockRepository.GenerateStub<ExcelDataProvider>();
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 1)).Return(1);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 2)).Return(3);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 3)).Return(5);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 3, 2)).Return("A");
-			provider.Stub(x => x.GetCellValue(WorksheetName, 3, 3)).Return("B");
-			provider.Stub(x => x.GetCellValue(WorksheetName, 3, 4)).Return("C");
-
-			parsingContext.ExcelDataProvider = provider;
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual("B", result.Result);
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+				worksheet.Cells[1, 1].Value = 1;
+				worksheet.Cells[1, 2].Value = 3;
+				worksheet.Cells[1, 3].Value = 5;
+				worksheet.Cells[3, 2].Value = "A";
+				worksheet.Cells[3, 3].Value = "B";
+				worksheet.Cells[3, 4].Value = "C";
+				worksheet.Cells[5, 5].Formula = "=LOOKUP(4, A1:C1, B3:D3)";
+				worksheet.Calculate();
+				Assert.AreEqual("B", worksheet.Cells[5, 5].Value);
+			}
 		}
 
 		[TestMethod]
+		public void LookupWithIncompatibleType()
+		{
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+				worksheet.Cells[1, 1].Value = "A";
+				worksheet.Cells[1, 2].Value = 1;
+				worksheet.Cells[1, 3].Value = 2;
+				worksheet.Cells[1, 4].Value = 3;
+				worksheet.Cells[3, 1].Value = "A";
+				worksheet.Cells[3, 2].Value = "B";
+				worksheet.Cells[3, 3].Value = "C";
+				worksheet.Cells[3, 4].Value = "D";
+				worksheet.Cells[5, 5].Formula = "=LOOKUP(2, A1:D1, A3:D3)";
+				worksheet.Calculate();
+				Assert.AreEqual("C", worksheet.Cells[5, 5].Value);
+			}
+		}
+
+		[TestMethod]
+		public void LookupWithInvalidArgumentReturnsPoundValue()
+		{
+			var func = new Lookup();
+			var parsingContext = ParsingContext.Create();
+			var args = FunctionsHelper.CreateArgs();
+			var result = func.Execute(args, parsingContext);
+			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)result.Result).Type);
+		}
+		#endregion
+
+		#region Match Tests
+		[TestMethod]
 		public void MatchShouldReturnIndexOfMatchingValHorizontal_MatchTypeExact()
 		{
-			var func = new Match();
-			var args = FunctionsHelper.CreateArgs(3, "A1:C1", 0);
-			var parsingContext = ParsingContext.Create();
-			parsingContext.Scopes.NewScope(RangeAddress.Empty);
-
-			var provider = MockRepository.GenerateStub<ExcelDataProvider>();
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 1)).Return(1);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 2)).Return(3);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 3)).Return(5);
-			parsingContext.ExcelDataProvider = provider;
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual(2, result.Result);
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+				worksheet.Cells[1, 1].Value = 1;
+				worksheet.Cells[1, 2].Value = 3;
+				worksheet.Cells[1, 3].Value = 5;
+				worksheet.Cells[10, 10].Formula = "MATCH(3, A1:C1, 0)";
+				worksheet.Calculate();
+				Assert.AreEqual(2, worksheet.Cells[10, 10].Value);
+			}
 		}
 
 		[TestMethod]
 		public void MatchShouldReturnIndexOfMatchingValVertical_MatchTypeExact()
 		{
-			var func = new Match();
-			var args = FunctionsHelper.CreateArgs(3, "A1:A3", 0);
-			var parsingContext = ParsingContext.Create();
-			parsingContext.Scopes.NewScope(RangeAddress.Empty);
-
-			var provider = MockRepository.GenerateStub<ExcelDataProvider>();
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 1)).Return(1);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 2, 1)).Return(3);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 3, 1)).Return(5);
-			parsingContext.ExcelDataProvider = provider;
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual(2, result.Result);
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+				worksheet.Cells[1, 1].Value = 1;
+				worksheet.Cells[2, 1].Value = 3;
+				worksheet.Cells[3, 1].Value = 5;
+				worksheet.Cells[10, 10].Formula = "MATCH(3, A1:A3, 0)";
+				worksheet.Calculate();
+				Assert.AreEqual(2, worksheet.Cells[10, 10].Value);
+			}
 		}
 
 		[TestMethod]
 		public void MatchShouldReturnIndexOfMatchingValHorizontal_MatchTypeClosestBelow()
 		{
-			var func = new Match();
-			var args = FunctionsHelper.CreateArgs(4, "A1:C1", 1);
-			var parsingContext = ParsingContext.Create();
-			parsingContext.Scopes.NewScope(RangeAddress.Empty);
-
-			var provider = MockRepository.GenerateStub<ExcelDataProvider>();
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 1)).Return(1);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 2)).Return(3);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 3)).Return(5);
-			parsingContext.ExcelDataProvider = provider;
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual(2, result.Result);
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+				worksheet.Cells[1, 1].Value = 1;
+				worksheet.Cells[1, 2].Value = 3;
+				worksheet.Cells[1, 3].Value = 5;
+				worksheet.Cells[10, 10].Formula = "MATCH(4, A1:C1, 1)";
+				worksheet.Calculate();
+				Assert.AreEqual(2, worksheet.Cells[10, 10].Value);
+			}
 		}
 
 		[TestMethod]
 		public void MatchShouldReturnIndexOfMatchingValHorizontal_MatchTypeClosestAbove()
 		{
-			var func = new Match();
-			var args = FunctionsHelper.CreateArgs(6, "A1:C1", -1);
-			var parsingContext = ParsingContext.Create();
-			parsingContext.Scopes.NewScope(RangeAddress.Empty);
-
-			var provider = MockRepository.GenerateStub<ExcelDataProvider>();
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 1)).Return(10);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 2)).Return(8);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 3)).Return(5);
-			parsingContext.ExcelDataProvider = provider;
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual(2, result.Result);
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+				worksheet.Cells[1, 1].Value = 10;
+				worksheet.Cells[1, 2].Value = 8;
+				worksheet.Cells[1, 3].Value = 5;
+				worksheet.Cells[10, 10].Formula = "MATCH(6, A1:C1, -1)";
+				worksheet.Calculate();
+				Assert.AreEqual(2, worksheet.Cells[10, 10].Value);
+			}
 		}
 
 		[TestMethod]
 		public void MatchShouldReturnFirstItemWhenExactMatch_MatchTypeClosestAbove()
 		{
-			var func = new Match();
-			var args = FunctionsHelper.CreateArgs(10, "A1:C1", -1);
-			var parsingContext = ParsingContext.Create();
-			parsingContext.Scopes.NewScope(RangeAddress.Empty);
-
-			var provider = MockRepository.GenerateStub<ExcelDataProvider>();
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 1)).Return(10);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 2)).Return(8);
-			provider.Stub(x => x.GetCellValue(WorksheetName, 1, 3)).Return(5);
-			parsingContext.ExcelDataProvider = provider;
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual(1, result.Result);
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+				worksheet.Cells[1, 1].Value = 10;
+				worksheet.Cells[1, 2].Value = 8;
+				worksheet.Cells[1, 3].Value = 5;
+				worksheet.Cells[10, 10].Formula = "MATCH(10, A1:C1, -1)";
+				worksheet.Calculate();
+				Assert.AreEqual(1, worksheet.Cells[10, 10].Value);
+			}
 		}
 
-		[TestMethod, Ignore]
+		[TestMethod]
+		public void MatchWithNullArgumentsReturnsNotApplicableException()
+		{
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+				worksheet.Cells[10, 10].Formula = "MATCH(B7, A1:C1, -1)";
+				worksheet.Calculate();
+				Assert.AreEqual(eErrorType.NA, ((ExcelErrorValue)worksheet.Cells[10, 10].Value).Type);
+			}
+		}
+
+		[TestMethod]
+		public void MatchCannotFindMatchReturnsNotApplicableException()
+		{
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+				worksheet.Cells[1, 1].Value = 10;
+				worksheet.Cells[1, 2].Value = 8;
+				worksheet.Cells[1, 3].Value = 5;
+				worksheet.Cells[7, 2].Value = 99;
+				worksheet.Cells[10, 10].Formula = "MATCH(B7, A1:C1, 0)";
+				worksheet.Calculate();
+				Assert.AreEqual(eErrorType.NA, ((ExcelErrorValue)worksheet.Cells[10, 10].Value).Type);
+			}
+		}
+
+		[TestMethod]
 		public void MatchShouldHandleAddressOnOtherSheet()
 		{
 			using (var package = new ExcelPackage())
@@ -438,6 +492,18 @@ namespace EPPlusTest.Excel.Functions
 		}
 
 		[TestMethod]
+		public void MatchWithInvalidArgumentReturnsPoundValue()
+		{
+			var func = new Match();
+			var parsingContext = ParsingContext.Create();
+			var args = FunctionsHelper.CreateArgs();
+			var result = func.Execute(args, parsingContext);
+			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)result.Result).Type);
+		}
+		#endregion
+
+		#region Row(s)/Column(s) Tests
+		[TestMethod]
 		public void RowShouldReturnRowFromCurrentScopeIfNoAddressIsSupplied()
 		{
 			var func = new Row();
@@ -451,11 +517,13 @@ namespace EPPlusTest.Excel.Functions
 		[TestMethod]
 		public void RowShouldReturnRowSuppliedAddress()
 		{
-			var func = new Row();
-			var parsingContext = ParsingContext.Create();
-			parsingContext.ExcelDataProvider = MockRepository.GenerateStub<ExcelDataProvider>();
-			var result = func.Execute(FunctionsHelper.CreateArgs("A3"), parsingContext);
-			Assert.AreEqual(3, result.Result);
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+				worksheet.Cells["D4"].Formula = "ROW(A3)";
+				worksheet.Calculate();
+				Assert.AreEqual(3, worksheet.Cells["D4"].Value);
+			}
 		}
 
 		[TestMethod]
@@ -472,11 +540,13 @@ namespace EPPlusTest.Excel.Functions
 		[TestMethod]
 		public void ColumnShouldReturnRowSuppliedAddress()
 		{
-			var func = new Column();
-			var parsingContext = ParsingContext.Create();
-			parsingContext.ExcelDataProvider = MockRepository.GenerateStub<ExcelDataProvider>();
-			var result = func.Execute(FunctionsHelper.CreateArgs("E3"), parsingContext);
-			Assert.AreEqual(5, result.Result);
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+				worksheet.Cells["D4"].Formula = "COLUMN(A3)";
+				worksheet.Calculate();
+				Assert.AreEqual(1, worksheet.Cells["D4"].Value);
+			}
 		}
 
 		[TestMethod]
@@ -500,6 +570,16 @@ namespace EPPlusTest.Excel.Functions
 		}
 
 		[TestMethod]
+		public void RowsWithInvalidArgumentReturnsPoundValue()
+		{
+			var func = new Rows();
+			var parsingContext = ParsingContext.Create();
+			var args = FunctionsHelper.CreateArgs();
+			var result = func.Execute(args, parsingContext);
+			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)result.Result).Type);
+		}
+
+		[TestMethod]
 		public void ColumnssShouldReturnNbrOfRowsSuppliedRange()
 		{
 			var func = new Columns();
@@ -510,14 +590,17 @@ namespace EPPlusTest.Excel.Functions
 		}
 
 		[TestMethod]
-		public void ChooseShouldReturnItemByIndex()
+		public void ColumnsWithInvalidArgumentReturnsPoundValue()
 		{
-			var func = new Choose();
+			var func = new Columns();
 			var parsingContext = ParsingContext.Create();
-			var result = func.Execute(FunctionsHelper.CreateArgs(1, "A", "B"), parsingContext);
-			Assert.AreEqual("A", result.Result);
+			var args = FunctionsHelper.CreateArgs();
+			var result = func.Execute(args, parsingContext);
+			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)result.Result).Type);
 		}
+		#endregion
 
+		#region Address Tests
 		[TestMethod]
 		public void AddressShouldReturnAddressByIndexWithDefaultRefType()
 		{
@@ -551,6 +634,15 @@ namespace EPPlusTest.Excel.Functions
 			Assert.AreEqual("Worksheet1!B1", result.Result);
 		}
 
+		[TestMethod]
+		public void AddressWithTooFewArgumentsReturnsPoundValue()
+		{
+			var function = new OfficeOpenXml.FormulaParsing.Excel.Functions.RefAndLookup.Address();
+			var args = FunctionsHelper.CreateArgs("One Arg Only");
+			var result = function.Execute(args, null);
+			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)result.Result).Type);
+		}
+
 		[TestMethod, ExpectedException(typeof(InvalidOperationException))]
 		public void AddressShouldThrowIfR1C1FormatIsSpecified()
 		{
@@ -560,96 +652,18 @@ namespace EPPlusTest.Excel.Functions
 			parsingContext.ExcelDataProvider.Stub(x => x.ExcelMaxRows).Return(10);
 			var result = func.Execute(FunctionsHelper.CreateArgs(1, 2, (int)ExcelReferenceType.RelativeRowAndColumn, false), parsingContext);
 		}
+		#endregion
 
+		#region Choose Tests
 		[TestMethod]
-		public void OffsetReturnsPoundValueIfTooFewArgumentsAreSupplied()
+		public void ChooseShouldReturnItemByIndex()
 		{
-			var func = new Offset();
+			var func = new Choose();
 			var parsingContext = ParsingContext.Create();
-			var args = FunctionsHelper.CreateArgs("B2", 2);
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)result.Result).Type);
+			var result = func.Execute(FunctionsHelper.CreateArgs(1, "A", "B"), parsingContext);
+			Assert.AreEqual("A", result.Result);
 		}
-
-		[TestMethod]
-		public void OffsetReturnsPoundRefIfInvalidArgumentsAreSupplied()
-		{
-			var func = new Offset();
-			var parsingContext = ParsingContext.Create();
-			var args = FunctionsHelper.CreateArgs("B2", 0, 0, 0, 0);
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual(eErrorType.Ref, ((ExcelErrorValue)result.Result).Type);
-		}
-
-		[TestMethod]
-		public void ColumnsWithInvalidArgumentReturnsPoundValue()
-		{
-			var func = new Columns();
-			var parsingContext = ParsingContext.Create();
-			var args = FunctionsHelper.CreateArgs();
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)result.Result).Type);
-		}
-
-		[TestMethod]
-		public void HLookupWithInvalidArgumentReturnsPoundValue()
-		{
-			var func = new HLookup();
-			var parsingContext = ParsingContext.Create();
-			var args = FunctionsHelper.CreateArgs();
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)result.Result).Type);
-		}
-
-		[TestMethod]
-		public void LookupWithInvalidArgumentReturnsPoundValue()
-		{
-			var func = new Lookup();
-			var parsingContext = ParsingContext.Create();
-			var args = FunctionsHelper.CreateArgs();
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)result.Result).Type);
-		}
-
-		[TestMethod]
-		public void MatchWithInvalidArgumentReturnsPoundValue()
-		{
-			var func = new Match();
-			var parsingContext = ParsingContext.Create();
-			var args = FunctionsHelper.CreateArgs();
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)result.Result).Type);
-		}
-
-		[TestMethod]
-		public void OffsetWithInvalidArgumentReturnsPoundValue()
-		{
-			var func = new Offset();
-			var parsingContext = ParsingContext.Create();
-			var args = FunctionsHelper.CreateArgs();
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)result.Result).Type);
-		}
-
-		[TestMethod]
-		public void RowsWithInvalidArgumentReturnsPoundValue()
-		{
-			var func = new Rows();
-			var parsingContext = ParsingContext.Create();
-			var args = FunctionsHelper.CreateArgs();
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)result.Result).Type);
-		}
-
-		[TestMethod]
-		public void VLookupWithInvalidArgumentReturnsPoundValue()
-		{
-			var func = new VLookup();
-			var parsingContext = ParsingContext.Create();
-			var args = FunctionsHelper.CreateArgs();
-			var result = func.Execute(args, parsingContext);
-			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)result.Result).Type);
-		}
+		#endregion
 
 		#region Helper Methods
 		private ParsingContext BuildParsingContext(ExcelPackage excelPackage)

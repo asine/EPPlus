@@ -40,6 +40,7 @@ using OfficeOpenXml.Drawing.Chart;
 using OfficeOpenXml.Drawing.Slicers;
 using OfficeOpenXml.Drawing.Sparkline;
 using OfficeOpenXml.Drawing.Vml;
+using OfficeOpenXml.Extensions;
 using OfficeOpenXml.Utils;
 using OfficeOpenXml.VBA;
 
@@ -182,10 +183,6 @@ namespace OfficeOpenXml
 				{
 					this.CopyComment(originalWorksheet, added);
 				}
-				else if (originalWorksheet.VmlDrawingsComments.Count > 0)
-				{
-					this.CopyVmlDrawing(originalWorksheet, added);
-				}
 
 				CopyHeaderFooterPictures(originalWorksheet, added);
 
@@ -207,7 +204,7 @@ namespace OfficeOpenXml
 				}
 				if (originalWorksheet.Names.Count > 0)
 				{
-					this.CopySheetNames(originalWorksheet, added);
+					this.CopySheetNamedRanges(originalWorksheet, added);
 				}
 				if (originalWorksheet.SparklineGroups.SparklineGroups.Count > 0)
 				{
@@ -251,10 +248,13 @@ namespace OfficeOpenXml
 							{
 								serie.Series = ExcelRange.GetFullAddress(added.Name, address);
 							}
-							ExcelRange.SplitAddress(serie.XSeries, out workbook, out worksheet, out address);
-							if (worksheet == originalWorksheet.Name)
+							if (!string.IsNullOrEmpty(serie.XSeries))
 							{
-								serie.XSeries = ExcelRange.GetFullAddress(added.Name, address);
+								ExcelRange.SplitAddress(serie.XSeries, out workbook, out worksheet, out address);
+								if (worksheet == originalWorksheet.Name)
+								{
+									serie.XSeries = ExcelRange.GetFullAddress(added.Name, address);
+								}
 							}
 						}
 					}
@@ -293,13 +293,22 @@ namespace OfficeOpenXml
 
 			ExcelWorksheet worksheet = this.Worksheets[Index];
 			if (worksheet.Drawings.Count > 0)
-			{
 				worksheet.Drawings.ClearDrawings();
+			if (!(worksheet is ExcelChartsheet) && worksheet.Comments.Count > 0)
+				worksheet.Comments.Clear();
+
+			// Update all named range formulas referencing this sheet to #REF!
+			foreach (var namedRange in this.Package.Workbook.Names)
+			{
+				namedRange.NameFormula = this.Package.FormulaManager.UpdateFormulaDeletedSheetReferences(namedRange.NameFormula, worksheet.Name);
 			}
 
-			if (!(worksheet is ExcelChartsheet) && worksheet.Comments.Count > 0)
+			foreach (var sheet in this.Worksheets.Where(w => !w.Value.Name.IsEquivalentTo(worksheet.Name)))
 			{
-				worksheet.Comments.Clear();
+				foreach (var namedRange in sheet.Value.Names)
+				{
+					namedRange.NameFormula = this.Package.FormulaManager.UpdateFormulaDeletedSheetReferences(namedRange.NameFormula, worksheet.Name);
+				}
 			}
 
 			//Delete any parts still with relations to the Worksheet.
@@ -685,38 +694,23 @@ namespace OfficeOpenXml
 				group.Sparklines.Clear();
 				foreach (var originalSparkline in originalWorksheet.SparklineGroups.SparklineGroups[i].Sparklines)
 				{
-					var sparkline = new ExcelSparkline(group, group.NameSpaceManager) { Formula = new ExcelAddress(originalSparkline.Formula.Address), HostCell = new ExcelAddress(originalSparkline.HostCell.Address) };
-					sparkline.Formula.ChangeWorksheet(originalWorksheet.Name, addedWorksheet.Name);
+					ExcelAddress newFormula = null;
+					if (originalSparkline.Formula != null)
+						newFormula = new ExcelAddress(originalSparkline.Formula.Address);
+					ExcelAddress newHostCell = new ExcelAddress(originalSparkline.HostCell.Address);
+					var sparkline = new ExcelSparkline(newHostCell, newFormula, group, group.NameSpaceManager);
+					sparkline.Formula?.ChangeWorksheet(originalWorksheet.Name, addedWorksheet.Name);
 					group.Sparklines.Add(sparkline);
 				}
 			}
 		}
 
-		private void CopySheetNames(ExcelWorksheet originalWorksheet, ExcelWorksheet addedWorksheet)
+		private void CopySheetNamedRanges(ExcelWorksheet originalWorksheet, ExcelWorksheet addedWorksheet)
 		{
-			foreach (var name in originalWorksheet.Names)
+			foreach (var namedRange in originalWorksheet.Names)
 			{
-				ExcelNamedRange newName;
-				if (!name.IsName)
-				{
-					if (name.WorkSheet == originalWorksheet.Name)
-					{
-						newName = addedWorksheet.Names.Add(name.Name, addedWorksheet.Cells[name.FirstAddress]);
-					}
-					else
-					{
-						newName = addedWorksheet.Names.Add(name.Name, addedWorksheet.Workbook.Worksheets[name.WorkSheet].Cells[name.FirstAddress]);
-					}
-				}
-				else if (!string.IsNullOrEmpty(name.NameFormula))
-				{
-					newName = addedWorksheet.Names.AddFormula(name.Name, name.Formula);
-				}
-				else
-				{
-					newName = addedWorksheet.Names.AddValue(name.Name, name.Value);
-				}
-				newName.NameComment = name.NameComment;
+				string updatedFormula = this.Package.FormulaManager.UpdateFormulaSheetReferences(namedRange.NameFormula, originalWorksheet.Name, addedWorksheet.Name);
+				addedWorksheet.Names.Add(namedRange.Name, updatedFormula, namedRange.IsNameHidden, namedRange.NameComment);
 			}
 		}
 
@@ -828,29 +822,12 @@ namespace OfficeOpenXml
 				StreamWriter streamTbl = new StreamWriter(partTbl.GetStream(FileMode.Create, FileAccess.Write));
 				streamTbl.Write(xml);
 				streamTbl.Flush();
-
-				xml = tbl.CacheDefinition.CacheDefinitionXml.OuterXml;
-				var uriCd = GetNewUri(this.Package.Package, "/xl/pivotCache/pivotCacheDefinition{0}.xml", ref Id);
-				var partCd = this.Package.Package.CreatePart(uriCd, ExcelPackage.schemaPivotCacheDefinition, this.Package.Compression);
-				StreamWriter streamCd = new StreamWriter(partCd.GetStream(FileMode.Create, FileAccess.Write));
-				streamCd.Write(xml);
-				streamCd.Flush();
-
-				xml = "<pivotCacheRecords xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" count=\"0\" />";
-				var uriRec = new Uri(string.Format("/xl/pivotCache/pivotCacheRecords{0}.xml", Id), UriKind.Relative);
-				while (this.Package.Package.PartExists(uriRec))
-				{
-					uriRec = new Uri(string.Format("/xl/pivotCache/pivotCacheRecords{0}.xml", ++Id), UriKind.Relative);
-				}
-				var partRec = this.Package.Package.CreatePart(uriRec, ExcelPackage.schemaPivotCacheRecords, this.Package.Compression);
-				StreamWriter streamRec = new StreamWriter(partRec.GetStream(FileMode.Create, FileAccess.Write));
-				streamRec.Write(xml);
-				streamRec.Flush();
-
-				//create the relationship and add the ID to the worksheet xml.
+				
+				// Create the relationship and add the ID to the worksheet xml.
 				addedWorksheet.Part.CreateRelationship(UriHelper.ResolvePartUri(addedWorksheet.WorksheetUri, uriTbl), Packaging.TargetMode.Internal, ExcelPackage.schemaRelationships + "/pivotTable");
-				partTbl.CreateRelationship(UriHelper.ResolvePartUri(tbl.Relationship.SourceUri, uriCd), tbl.CacheDefinition.Relationship.TargetMode, tbl.CacheDefinition.Relationship.RelationshipType);
-				partCd.CreateRelationship(UriHelper.ResolvePartUri(uriCd, uriRec), Packaging.TargetMode.Internal, ExcelPackage.schemaRelationships + "/pivotCacheRecords");
+				// Creates the relationship to the original table's cache definition.
+				// Copying pivot tables does not duplicate cache definitions.
+				partTbl.CreateRelationship(UriHelper.ResolvePartUri(tbl.WorksheetRelationship.SourceUri, tbl.CacheDefinition.CacheDefinitionUri), tbl.CacheDefinitionRelationship.TargetMode, tbl.CacheDefinitionRelationship.RelationshipType);
 			}
 		}
 
@@ -907,7 +884,7 @@ namespace OfficeOpenXml
 
 			Dictionary<int, int> styleCashe = new Dictionary<int, int>();
 			int row, col;
-			var val = CellStoreEnumeratorFactory<ExcelCoreValue>.GetNewEnumerator(originalWorksheet._values);
+			var val = originalWorksheet._values.GetEnumerator();
 			while (val.MoveNext())
 			{
 				row = val.Row;
@@ -983,47 +960,14 @@ namespace OfficeOpenXml
 
 		private void CopyComment(ExcelWorksheet originalWorksheet, ExcelWorksheet addedWorksheet)
 		{
-			//First copy the drawing XML
 			string xml = originalWorksheet.Comments.CommentXml.InnerXml;
 			var uriComment = new Uri(string.Format("/xl/comments{0}.xml", addedWorksheet.SheetID), UriKind.Relative);
-			if (this.Package.Package.PartExists(uriComment))
-			{
-				uriComment = XmlHelper.GetNewUri(this.Package.Package, "/xl/drawings/vmldrawing{0}.vml");
-			}
-
 			var part = this.Package.Package.CreatePart(uriComment, "application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml", this.Package.Compression);
-
 			StreamWriter streamDrawing = new StreamWriter(part.GetStream(FileMode.Create, FileAccess.Write));
 			streamDrawing.Write(xml);
 			streamDrawing.Flush();
-
 			//Add the relationship ID to the worksheet xml.
 			var commentRelation = addedWorksheet.Part.CreateRelationship(UriHelper.GetRelativeUri(addedWorksheet.WorksheetUri, uriComment), Packaging.TargetMode.Internal, ExcelPackage.schemaRelationships + "/comments");
-
-			xml = originalWorksheet.VmlDrawingsComments.VmlDrawingXml.InnerXml;
-
-			var uriVml = new Uri(string.Format("/xl/drawings/vmldrawing{0}.vml", addedWorksheet.SheetID), UriKind.Relative);
-			if (this.Package.Package.PartExists(uriVml))
-			{
-				uriVml = XmlHelper.GetNewUri(this.Package.Package, "/xl/drawings/vmldrawing{0}.vml");
-			}
-
-			var vmlPart = this.Package.Package.CreatePart(uriVml, "application/vnd.openxmlformats-officedocument.vmlDrawing", this.Package.Compression);
-			StreamWriter streamVml = new StreamWriter(vmlPart.GetStream(FileMode.Create, FileAccess.Write));
-			streamVml.Write(xml);
-			streamVml.Flush();
-
-			var newVmlRel = addedWorksheet.Part.CreateRelationship(UriHelper.GetRelativeUri(addedWorksheet.WorksheetUri, uriVml), Packaging.TargetMode.Internal, ExcelPackage.schemaRelationships + "/vmlDrawing");
-
-			//Add the relationship ID to the worksheet xml.
-			XmlElement e = addedWorksheet.WorksheetXml.SelectSingleNode("//d:legacyDrawing", this.NamespaceManager) as XmlElement;
-			if (e == null)
-			{
-				addedWorksheet.CreateNode("d:legacyDrawing");
-				e = addedWorksheet.WorksheetXml.SelectSingleNode("//d:legacyDrawing", this.NamespaceManager) as XmlElement;
-			}
-
-			e.SetAttribute("id", ExcelPackage.schemaRelationships, newVmlRel.Id);
 		}
 
 		private void CopySlicers(ExcelWorksheet originalWorksheet, ExcelWorksheet newWorksheet)
@@ -1129,7 +1073,7 @@ namespace OfficeOpenXml
 						var slicer = newWorksheet.Slicers.Slicers.First(excelSlicer => excelSlicer.Name == draw.Name);
 						slicer.Name += $" {newSlicerNumber}";
 						slicer.SlicerCache.Name += newSlicerNumber.ToString();
-						this.Package.Workbook.Names.AddFormula(slicer.SlicerCache.Name, "#N/A");
+						this.Package.Workbook.Names.Add(slicer.SlicerCache.Name, "#N/A");
 
 						newSlicerDrawing.Slicer = slicer;
 						newSlicerDrawing.Name = newSlicerDrawing.Slicer.Name;
@@ -1166,30 +1110,6 @@ namespace OfficeOpenXml
 			newWorkbookSlicerCachesNode.AppendChild(newWorkbookSlicerCacheNode);
 			newWorkbookSlicerCacheNode.Attributes["r:id"].Value = slicerCacheRelationship.Id;
 			// We don't know the new PivotTableName yet, so updating that must done later, when PivotTables are copied.
-		}
-
-		private void CopyVmlDrawing(ExcelWorksheet originalSheet, ExcelWorksheet newSheet)
-		{
-			var xml = originalSheet.VmlDrawingsComments.VmlDrawingXml.OuterXml;
-			var vmlUri = new Uri(string.Format("/xl/drawings/vmlDrawing{0}.vml", newSheet.SheetID), UriKind.Relative);
-			var part = this.Package.Package.CreatePart(vmlUri, "application/vnd.openxmlformats-officedocument.vmlDrawing", this.Package.Compression);
-			using (var streamDrawing = new StreamWriter(part.GetStream(FileMode.Create, FileAccess.Write)))
-			{
-				streamDrawing.Write(xml);
-				streamDrawing.Flush();
-			}
-
-			//Add the relationship ID to the worksheet xml.
-			var vmlRelation = newSheet.Part.CreateRelationship(UriHelper.GetRelativeUri(newSheet.WorksheetUri, vmlUri), Packaging.TargetMode.Internal, ExcelPackage.schemaRelationships + "/vmlDrawing");
-			var e = newSheet.WorksheetXml.SelectSingleNode("//d:legacyDrawing", this.NamespaceManager) as XmlElement;
-			if (e == null)
-			{
-				e = newSheet.WorksheetXml.CreateNode(XmlNodeType.Entity, "//d:legacyDrawing", this.NamespaceManager.LookupNamespace("d")) as XmlElement;
-			}
-			if (e != null)
-			{
-				e.SetAttribute("id", ExcelPackage.schemaRelationships, vmlRelation.Id);
-			}
 		}
 
 		private string CreateWorkbookRel(string Name, int sheetID, Uri uriWorksheet, bool isChart)

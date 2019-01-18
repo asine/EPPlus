@@ -1,47 +1,21 @@
-﻿/*******************************************************************************
-* You may amend and distribute as you like, but don't remove this header!
-*
-* EPPlus provides server-side generation of Excel 2007/2010 spreadsheets.
-* See http://www.codeplex.com/EPPlus for details.
-*
-* Copyright (C) 2011-2017 Jan Källman, Matt Delaney, and others as noted in the source history.
-*
-* This library is free software; you can redistribute it and/or
-* modify it under the terms of the GNU Lesser General Public
-* License as published by the Free Software Foundation; either
-* version 2.1 of the License, or (at your option) any later version.
-
-* This library is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
-* See the GNU Lesser General Public License for more details.
-*
-* The GNU Lesser General Public License can be viewed at http://www.opensource.org/licenses/lgpl-license.php
-* If you unfamiliar with this license or have questions about it, here is an http://www.gnu.org/licenses/gpl-faq.html
-*
-* All code and executables are provided "as is" with no warranty either express or implied. 
-* The author accepts no liability for any damage or loss of business that this product may cause.
-*
-* For code change notes, see the source control history.
-*******************************************************************************/
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
+using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using EPPlusTest.Excel.Functions.DateTimeFunctions;
 using EPPlusTest.FormulaParsing.TestHelpers;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OfficeOpenXml;
 using OfficeOpenXml.FormulaParsing.Excel.Functions.DateTime;
 
-
 namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 {
 	[TestClass]
 	public class WorkdayTests : DateTimeFunctionsTestBase
 	{
-		#region Workday Function (Execute) Tests
-		// The below Test Cases have no Holiday parameter supplied to them.
-		// The below Test Cases have no negative second parameters.
 		[TestMethod]
 		public void WorkdayWithOADateParameterReturnsCorrectResult()
 		{
@@ -104,15 +78,6 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 		}
 
 		[TestMethod]
-		public void WorkdayWithDateNotAsStringReturnsCorrectValue()
-		{
-			var function = new Workday();
-			var input = 1 / 2 / 2017;
-			var result = function.Execute(FunctionsHelper.CreateArgs(input, 5), this.ParsingContext);
-			Assert.AreEqual(6.00, result.Result);
-		}
-
-		[TestMethod]
 		public void WorkdayWithDATEFunctionAsInputReturnsCorrectValue()
 		{
 			var function = new Workday();
@@ -122,10 +87,10 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 		}
 
 		[TestMethod]
-		public void WorkdayWithDateUsingPeriodsIntseadOfSlashesReturnsCorrectValue()
+		public void WorkdayWithDateUsingPeriodsInsteadOfSlashesReturnsCorrectValue()
 		{
 			// Test case where the first parameter is a date written as a string but with '.' in place of the '/'.
-			// This functionality is different than that of Excell's. Excel normally returns a #VALUE! when this 
+			// This functionality is different than that of Excel's. Excel normally returns a #VALUE! when this 
 			// is entered into the function but here the date is parsed normally. 
 			var function = new Workday();
 			var input = "1.2.2017";
@@ -218,16 +183,7 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 		}
 
 		[TestMethod]
-		public void WorkdayWithDateNotAsStringAndNegDayInputReturnsPoundNum()
-		{
-			var function = new Workday();
-			var inputDate = 1 / 2 / 2017;
-			var result = function.Execute(FunctionsHelper.CreateArgs(inputDate, -10), this.ParsingContext);
-			Assert.AreEqual(eErrorType.Num, ((ExcelErrorValue)result.Result).Type);
-		}
-
-		[TestMethod]
-		public void WorkdayWithDateAsStringAndNegDayInputReturnsCorrectValue()
+		public void WorkdayWithDateAsStringAndNegativeDayInputReturnsCorrectValue()
 		{
 			var function = new Workday();
 			var inputDate = "1/2/2017";
@@ -236,7 +192,7 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 		}
 
 		[TestMethod]
-		public void WorkdayWithGenericStringAndNegDayInputReturnsPoundValue()
+		public void WorkdayWithGenericStringAndNegativeDayInputReturnsPoundValue()
 		{
 			var function = new Workday();
 			var inputDate1 = "testString";
@@ -248,7 +204,7 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 		}
 
 		[TestMethod]
-		public void WorkdayWithEmptyFirstParameterAndNegDateInputREturnsPoundNA()
+		public void WorkdayWithEmptyFirstParameterAndNegativeDateInputReturnsPoundNA()
 		{
 			var function = new Workday();
 			var result = function.Execute(FunctionsHelper.CreateArgs(null, -10), this.ParsingContext);
@@ -265,7 +221,7 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 		}
 
 		[TestMethod]
-		public void WorkdayWithDateUsingPeriodsIntseadOfSlashesAndNegDayInputReturnsCorrectValue()
+		public void WorkdayWithDateUsingPeriodsInsteadOfSlashesAndNegativeDayInputReturnsCorrectValue()
 		{
 			// Test case where the second argument is negative and the first argument is the date as a string
 			// with '.' instead of '/'.
@@ -278,7 +234,7 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 		}
 
 		[TestMethod]
-		public void WorkdayWithNegFirstInputAndNegDateInputReturnsPoundNum()
+		public void WorkdayWithNegativeFirstInputAndNegativeDateInputReturnsPoundNum()
 		{
 			var function = new Workday();
 			var inputDate = -1;
@@ -287,7 +243,7 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 		}
 
 		[TestMethod]
-		public void WorkdayWithZeroFirstInputNegDateInputReturnsPoundNum()
+		public void WorkdayWithZeroFirstInputNegativeDateInputReturnsPoundNum()
 		{
 			var function = new Workday();
 			var result = function.Execute(FunctionsHelper.CreateArgs(0, -10), this.ParsingContext);
@@ -333,16 +289,6 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 		}
 
 		[TestMethod]
-		public void WorkdayWithDayParameterWithNoQuotesReturnsCorrectValue()
-		{
-			var function = new Workday();
-			var daysInput = 1 / 13 / 2017;
-			var startDate = new DateTime(2017, 1, 1);
-			var result = function.Execute(FunctionsHelper.CreateArgs(startDate, daysInput), this.ParsingContext);
-			Assert.AreEqual(42736.00, result.Result);
-		}
-
-		[TestMethod]
 		public void WorkdayWithDayParameterAsGenericStringReturnsPoundValue()
 		{
 			var function = new Workday();
@@ -365,7 +311,7 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 		}
 
 		[TestMethod]
-		public void WeekdayWithDayParameterAsOADateReturnCorrectValue()
+		public void WorkdayWithDayParameterAsOADateReturnCorrectValue()
 		{
 			var function = new Workday();
 			var startDate = new DateTime(2017, 1, 1);
@@ -476,7 +422,7 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 
 		[TestMethod]
 		public void WorkdayWithHolidayWithDashesInsteadOfSlashesReturnsCorrectValue()
-		{ 
+		{
 			var function = new Workday();
 			var inputDate = new DateTime(2017, 1, 2);
 			var result = function.Execute(FunctionsHelper.CreateArgs(inputDate, 41, "1-25-2017"), this.ParsingContext);
@@ -514,7 +460,7 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 		}
 
 		[TestMethod]
-		public void WeekdayWithDateFunctionHolidayInputReturnsCorrectValue()
+		public void WorkdayWithDateFunctionHolidayInputReturnsCorrectValue()
 		{
 			using (var package = new ExcelPackage())
 			{
@@ -522,7 +468,7 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 				ws.Cells["A1"].Value = new DateTime(2017, 1, 2);
 				ws.Cells["B1"].Value = new DateTime(2017, 1, 20);
 				ws.Cells["B2"].Value = new DateTime(2017, 1, 25);
-				ws.Cells["B3"].Formula = "WORKDAY(A1,40, B1:B2)";
+				ws.Cells["B3"].Formula = "WORKDAY(A1,40,B1:B2)";
 				ws.Calculate();
 				var actualDate = ws.Cells["B3"].Value;
 				Assert.AreEqual(42795.00, actualDate);
@@ -530,27 +476,7 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 		}
 
 		[TestMethod]
-		public void WeekdayWithHolidayDateNotAsStringReturnsCorrectInput()
-		{
-			using (var package = new ExcelPackage())
-			{
-				var ws = package.Workbook.Worksheets.Add("test");
-				ws.Cells["A1"].Value = "1/2/2017";
-				ws.Cells["B1"].Value = 5 / 4 / 2017;
-				ws.Cells["B2"].Value = 2 / 15 / 2017;
-				ws.Cells["B3"].Formula = "WORKDAY(A1,40, B1:B2)";
-				ws.Calculate();
-				var actualDate = ws.Cells["B3"].Value;
-				Assert.AreEqual(42793.00, actualDate);
-			}
-			var function = new Workday();
-			var holiInput = 1 / 20 / 2017;
-			var result = function.Execute(FunctionsHelper.CreateArgs("1/2/2017", 40, holiInput), this.ParsingContext);
-			Assert.AreEqual(42793.00, result.Result);
-		}
-
-		[TestMethod]
-		public void WeekdayWithLargeNumberOfHolidaysReturnsCorrectInput()
+		public void WorkdayWithLargeNumberOfHolidaysReturnsCorrectInput()
 		{
 			using (var package = new ExcelPackage())
 			{
@@ -604,7 +530,7 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 		}
 
 		[TestMethod]
-		public void WeekdayWithLargeNumberOfHolidaysAsOADatesReturnsCorrectInput()
+		public void WorkdayWithLargeNumberOfHolidaysAsOADatesReturnsCorrectInput()
 		{
 			using (var package = new ExcelPackage())
 			{
@@ -679,12 +605,12 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 		public void WorkdayFunctionWithErrorValuesAsInputReturnsTheInputErrorValue()
 		{
 			var func = new Workday();
-			var argNA = FunctionsHelper.CreateArgs(ExcelErrorValue.Create(eErrorType.NA),2);
-			var argNAME = FunctionsHelper.CreateArgs(ExcelErrorValue.Create(eErrorType.Name),2);
-			var argVALUE = FunctionsHelper.CreateArgs(ExcelErrorValue.Create(eErrorType.Value),2);
-			var argNUM = FunctionsHelper.CreateArgs(ExcelErrorValue.Create(eErrorType.Num),2);
-			var argDIV0 = FunctionsHelper.CreateArgs(ExcelErrorValue.Create(eErrorType.Div0),2);
-			var argREF = FunctionsHelper.CreateArgs(ExcelErrorValue.Create(eErrorType.Ref),2);
+			var argNA = FunctionsHelper.CreateArgs(ExcelErrorValue.Create(eErrorType.NA), 2);
+			var argNAME = FunctionsHelper.CreateArgs(ExcelErrorValue.Create(eErrorType.Name), 2);
+			var argVALUE = FunctionsHelper.CreateArgs(ExcelErrorValue.Create(eErrorType.Value), 2);
+			var argNUM = FunctionsHelper.CreateArgs(ExcelErrorValue.Create(eErrorType.Num), 2);
+			var argDIV0 = FunctionsHelper.CreateArgs(ExcelErrorValue.Create(eErrorType.Div0), 2);
+			var argREF = FunctionsHelper.CreateArgs(ExcelErrorValue.Create(eErrorType.Ref), 2);
 			var resultNA = func.Execute(argNA, this.ParsingContext);
 			var resultNAME = func.Execute(argNAME, this.ParsingContext);
 			var resultVALUE = func.Execute(argVALUE, this.ParsingContext);
@@ -698,6 +624,5 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.DateTimeFunctions
 			Assert.AreEqual(eErrorType.Div0, ((ExcelErrorValue)resultDIV0.Result).Type);
 			Assert.AreEqual(eErrorType.Ref, ((ExcelErrorValue)resultREF.Result).Type);
 		}
-		#endregion
 	}
 }

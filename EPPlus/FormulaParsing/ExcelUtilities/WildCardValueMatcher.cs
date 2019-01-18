@@ -28,26 +28,78 @@
  * ******************************************************************************
  * Mats Alm   		                Added       		        2013-03-01 (Prior file history on https://github.com/swmal/ExcelFormulaParser)
  *******************************************************************************/
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace OfficeOpenXml.FormulaParsing.ExcelUtilities
 {
 	public class WildCardValueMatcher : ValueMatcher
 	{
-		protected override int CompareStringToString(string s1, string s2)
+		#region Public Methods
+		/// <summary>
+		/// Convert Excel wildcard values to regular expression values in a given string.
+		/// </summary>
+		/// <param name="searchString">The string that contains Excel wildcard values.</param>
+		/// <returns>A string with only regular expression values.</returns>
+		public string ExcelWildcardToRegex(string searchString)
 		{
-			if (s1.Contains("*") || s1.Contains("?"))
+			var regexString = new StringBuilder();
+			for (int i = 0; i < searchString.Length; i++)
 			{
-				var regexPattern = Regex.Escape(s1);
-				regexPattern = string.Format("^{0}$", regexPattern);
-				regexPattern = regexPattern.Replace(@"\*", ".*");
-				regexPattern = regexPattern.Replace(@"\?", ".");
-				if (Regex.IsMatch(s2, regexPattern))
+				var currentCharacter = searchString[i];
+				// Check if there are any escaped characters.
+				if (currentCharacter == '~' && i != searchString.Length - 1)
 				{
-					return 0;
+					var escapeCharacter = searchString[i + 1];
+					if (escapeCharacter == '~')
+						regexString.Append(escapeCharacter);
+					else if (escapeCharacter == '?' || escapeCharacter == '*')
+						regexString.Append(Regex.Escape(escapeCharacter.ToString()));
+					i++;
 				}
+				else if (currentCharacter == '?')
+					regexString.Append('.');
+				else if (currentCharacter == '*')
+				{
+					regexString.Append('.');
+					regexString.Append(currentCharacter);
+				}
+				else
+					regexString.Append(currentCharacter);
 			}
-			return base.CompareStringToString(s1, s2);
+			return regexString.ToString();
 		}
+
+		protected override int? CompareStringToString(string searchString, string testValue)
+		{
+			if (searchString.Contains("*") || searchString.Contains("?") || searchString.Contains("~"))
+			{
+				Regex regex = this.TranslateExcelMatchStringToRegex(searchString);
+				if (regex.IsMatch(testValue))
+					return 0;
+			}
+			return base.CompareStringToString(searchString, testValue);
+		}
+		#endregion
+
+		#region Private Methods
+		private Regex TranslateExcelMatchStringToRegex(string searchString)
+		{
+			// Escape all regex special characters (including * and ?).
+			var regexPattern = Regex.Escape(searchString);
+			// Un-escape * and replace with ".*" because we want * to act as a wild card.
+			regexPattern = regexPattern.Replace(@"\*", ".*");
+			// Check for Excel escaped wildcards ("~*" (which is now "~.*" (see above))) and replaced with Regex escaped wildcards.
+			regexPattern = regexPattern.Replace(@"~.*", @"\*");
+			// Un-escape ? and replace with . because we want ? to match a single character.
+			regexPattern = regexPattern.Replace(@"\?", ".");
+			// Check for Excel escaped single character match ("~?" (which is now "~." (see above))) and replace with Regex escaped question mark.
+			regexPattern = regexPattern.Replace(@"~.", @"\?");
+			// Un-escape any escaped Excel escape characters since it's not a special character in regex.
+			regexPattern = regexPattern.Replace("~~", "~");
+			// Start and end characters for full string match.
+			return new Regex(string.Format("^{0}$", regexPattern));
+		}
+		#endregion
 	}
 }

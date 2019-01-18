@@ -35,9 +35,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Resources;
 using System.Security.Cryptography;
 using System.Xml;
 using OfficeOpenXml.Encryption;
+using OfficeOpenXml.Internationalization;
 using OfficeOpenXml.Utils;
 namespace OfficeOpenXml
 {
@@ -115,6 +117,8 @@ namespace OfficeOpenXml
 		internal const string schemaVt = @"http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes";
 
 		//Pivottables
+		internal const string schemaPivotCacheRelationship = @"http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheDefinition";
+		internal const string schemaPivotCacheRecordsRelationship = @"http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheRecords";
 		internal const string schemaPivotTable = @"application/vnd.openxmlformats-officedocument.spreadsheetml.pivotTable+xml";
 		internal const string schemaPivotCacheDefinition = @"application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheDefinition+xml";
 		internal const string schemaPivotCacheRecords = @"application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheRecords+xml";
@@ -217,8 +221,6 @@ namespace OfficeOpenXml
 					var nsm = this.CreateDefaultNSM();
 
 					this._workbook = new ExcelWorkbook(this, nsm);
-
-					this._workbook.GetExternalReferences();
 					this._workbook.GetDefinedNames();
 
 				}
@@ -584,6 +586,15 @@ namespace OfficeOpenXml
 		{
 			this.Encryption.Password = password;
 			this.Save();
+		}
+
+		/// <summary>
+		/// Saves the workbook to a new file. The package is closed after it has been saved.
+		/// </summary>
+		/// <param name="fileName">The filename to save the workbook to.</param>
+		public void SaveAs(string fileName)
+		{
+			this.SaveAs(new FileInfo(fileName));
 		}
 
 		/// <summary>

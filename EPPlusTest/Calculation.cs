@@ -132,23 +132,18 @@ namespace EPPlusTest
 		{
 			var pck = new ExcelPackage();
 			var ws = pck.Workbook.Worksheets.Add("CalcTest");
-			ws.Names.AddValue("PRICE", 10);
-			ws.Names.AddValue("QUANTITY", 11);
+
+			ws.Names.Add("PRICE", "10");
+			ws.Names.Add("QUANTITY", "30");
 			ws.Cells["A1"].Formula = "PRICE*QUANTITY";
-			ws.Names.AddFormula("AMOUNT", "PRICE*QUANTITY");
-
-			ws.Names["PRICE"].Value = 30;
-			ws.Names["QUANTITY"].Value = 10;
-
+			ws.Names.Add("AMOUNT", "PRICE*QUANTITY");
 			ws.Calculate();
 			Assert.AreEqual(300D, ws.Cells["A1"].Value);
-			Assert.AreEqual(300D, ws.Names["AMOUNT"].Value);
-			ws.Names["PRICE"].Value = 40;
-			ws.Names["QUANTITY"].Value = 20;
 
+			ws.Names["PRICE"].NameFormula = "40";
+			ws.Names["QUANTITY"].NameFormula = "20";
 			ws.Calculate();
 			Assert.AreEqual(800D, ws.Cells["A1"].Value);
-			Assert.AreEqual(800D, ws.Names["AMOUNT"].Value);
 		}
 
 		[TestMethod]
@@ -243,19 +238,20 @@ namespace EPPlusTest
 				var dateFormulaWithMath = "B2+1";
 				var quotedDateFormulaWithMath = $"\"{date.ToString("d")}\"+1";
 				var quotedDateReferenceFormulaWithMath = "C2+1";
-				var expectedDate = 41275.0; // January 1, 2013
-				var expectedDateWithMath = 41276.0; // January 2, 2013
+				var expectedDate = DateTime.FromOADate(41275.0); // January 1, 2013
+				var expectedDateDecimalWithMath = 41276.0;
+				var expectedDateWithMath = DateTime.FromOADate(expectedDateDecimalWithMath); // January 2, 2013
 				Assert.AreEqual(expectedDate, worksheet.Calculate(dateFormula));
 				Assert.AreEqual(expectedDateWithMath, worksheet.Calculate(dateFormulaWithMath));
-				Assert.AreEqual(expectedDateWithMath, worksheet.Calculate(quotedDateFormulaWithMath));
-				Assert.AreEqual(expectedDateWithMath, worksheet.Calculate(quotedDateReferenceFormulaWithMath));
+				Assert.AreEqual(expectedDateDecimalWithMath, worksheet.Calculate(quotedDateFormulaWithMath));
+				Assert.AreEqual(expectedDateDecimalWithMath, worksheet.Calculate(quotedDateReferenceFormulaWithMath));
 				var formulaCell = worksheet.Cells[2, 4];
 				formulaCell.Formula = dateFormulaWithMath;
 				formulaCell.Calculate();
 				Assert.AreEqual(expectedDateWithMath, formulaCell.Value);
 				formulaCell.Formula = quotedDateReferenceFormulaWithMath;
 				formulaCell.Calculate();
-				Assert.AreEqual(expectedDateWithMath, formulaCell.Value);
+				Assert.AreEqual(expectedDateDecimalWithMath, formulaCell.Value);
 			}
 		}
 
@@ -268,6 +264,18 @@ namespace EPPlusTest
 				sheet.Cells[2, 2].Formula = "YEAR(\"30/12/15\")";
 				sheet.Calculate();
 				Assert.AreEqual(ExcelErrorValue.Create(eErrorType.Value), sheet.Cells[2, 2].Value);
+			}
+		}
+
+		[TestMethod]
+		public void CalculateHandlesNestedBrackets()
+		{
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("sheet");
+				worksheet.Cells["C3"].Formula = "=\"\"\"[Cust - Bill-to].[b\"&\"y Country City].[Country]\"\"\"";
+				worksheet.Cells["C3"].Calculate();
+				Assert.AreEqual("\"[Cust - Bill-to].[by Country City].[Country]\"", worksheet.Cells["C3"].Value);
 			}
 		}
 		#endregion

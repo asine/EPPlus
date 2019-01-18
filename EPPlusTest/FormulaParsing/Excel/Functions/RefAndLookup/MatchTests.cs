@@ -72,6 +72,83 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.RefAndLookup
 		}
 
 		[TestMethod]
+		public void MatchWildcard()
+		{
+			this.Worksheet.Cells["A1"].Value = "hello";
+			this.Worksheet.Cells["A2"].Value = "abc";
+			this.Worksheet.Cells["A3"].Value = "123";
+			this.Worksheet.Cells["A4"].Formula = @"MATCH(""*"",A1:A3,0)";
+			this.Worksheet.Calculate();
+			Assert.AreEqual(1, this.Worksheet.Cells["A4"].Value);
+		}
+
+		[TestMethod]
+		public void MatchWildcardStartsWith()
+		{
+			this.Worksheet.Cells["A1"].Value = "hello";
+			this.Worksheet.Cells["A2"].Value = "abc";
+			this.Worksheet.Cells["A3"].Value = "123";
+			this.Worksheet.Cells["A4"].Formula = @"MATCH(""a*"",A1:A3,0)";
+			this.Worksheet.Calculate();
+			Assert.AreEqual(2, this.Worksheet.Cells["A4"].Value);
+		}
+
+		[TestMethod]
+		public void MatchWildcardStartsWithNumber()
+		{
+			this.Worksheet.Cells["A1"].Value = "hello";
+			this.Worksheet.Cells["A2"].Value = "abc";
+			this.Worksheet.Cells["A3"].Value = "123";
+			this.Worksheet.Cells["A4"].Formula = @"MATCH(""1*"",A1:A3,0)";
+			this.Worksheet.Calculate();
+			Assert.AreEqual(3, this.Worksheet.Cells["A4"].Value);
+		}
+
+		[TestMethod]
+		public void MatchWildcardMissingCharacterEnd()
+		{
+			this.Worksheet.Cells["A1"].Value = "hello";
+			this.Worksheet.Cells["A2"].Value = "abc";
+			this.Worksheet.Cells["A3"].Value = "123";
+			this.Worksheet.Cells["A4"].Formula = @"MATCH(""ab?"",A1:A3,0)";
+			this.Worksheet.Calculate();
+			Assert.AreEqual(2, this.Worksheet.Cells["A4"].Value);
+		}
+
+		[TestMethod]
+		public void MatchWildcardMissingCharacterMiddle()
+		{
+			this.Worksheet.Cells["A1"].Value = "hello";
+			this.Worksheet.Cells["A2"].Value = "abc";
+			this.Worksheet.Cells["A3"].Value = "123";
+			this.Worksheet.Cells["A4"].Formula = @"MATCH(""a??"",A1:A3,0)";
+			this.Worksheet.Calculate();
+			Assert.AreEqual(2, this.Worksheet.Cells["A4"].Value);
+		}
+
+		[TestMethod]
+		public void MatchWildcardManyMissingCharacterMatches()
+		{
+			this.Worksheet.Cells["A1"].Value = "hello1";
+			this.Worksheet.Cells["A2"].Value = "hello2";
+			this.Worksheet.Cells["A3"].Value = "hello3";
+			this.Worksheet.Cells["A4"].Formula = @"MATCH(""??l?o2"",A1:A3,0)";
+			this.Worksheet.Calculate();
+			Assert.AreEqual(2, this.Worksheet.Cells["A4"].Value);
+		}
+
+		[TestMethod]
+		public void MatchEscapedStar()
+		{
+			this.Worksheet.Cells["A1"].Value = "hello";
+			this.Worksheet.Cells["A2"].Value = "*hey";
+			this.Worksheet.Cells["A3"].Value = "123";
+			this.Worksheet.Cells["A4"].Formula = @"MATCH(""~*hey"",A1:A3,0)";
+			this.Worksheet.Calculate();
+			Assert.AreEqual(2, this.Worksheet.Cells["A4"].Value);
+		}
+
+		[TestMethod]
 		public void MatchExactNotFound()
 		{
 			this.Worksheet.Cells["A1"].Value = 5d;
@@ -205,6 +282,83 @@ namespace EPPlusTest.FormulaParsing.Excel.Functions.RefAndLookup
 			this.Worksheet.Cells["A4"].Formula = "MATCH(4,A1:A3,-1)";
 			this.Worksheet.Calculate();
 			Assert.AreEqual(1, this.Worksheet.Cells["A4"].Value);
+		}
+
+		[TestMethod]
+		public void MatchWithArrayAsFirstArgumentSameRow()
+		{
+			this.Worksheet.Cells["B2"].Value = 2;
+			this.Worksheet.Cells["C4"].Value = 2;
+			// When the first argument to MATCH is a vertical array, 
+			// the value in the same row as the formula will be used as the lookup value (if they line up).
+			// A single value passed as the lookup array argument will be treated as an 
+			// array containing the single value.
+			this.Worksheet.Cells["E4"].Formula = "MATCH(C3:C5, B2, 0)";
+			this.Worksheet.Cells["E4"].Calculate();
+			Assert.AreEqual(1, this.Worksheet.Cells["E4"].Value);
+
+			this.Worksheet.Cells["C4"].Value = 1;
+			this.Worksheet.Cells["E4"].Calculate();
+			Assert.AreEqual(eErrorType.NA, ((ExcelErrorValue)this.Worksheet.Cells["E4"].Value).Type);
+		}
+
+		[TestMethod]
+		public void MatchWithArrayAsFirstArgumentSameColumn()
+		{
+			this.Worksheet.Cells["B2"].Value = 2;
+			this.Worksheet.Cells["D3"].Value = 2;
+			// When the first argument to MATCH is a horizontal array, 
+			// the value in the same column as the formula will be used as the lookup value (if they line up).
+			// A single value passed as the lookup array argument will be treated as an 
+			// array containing the single value.
+			this.Worksheet.Cells["D5"].Formula = "MATCH(C3:E3, B2, 0)";
+			this.Worksheet.Cells["D5"].Calculate();
+			Assert.AreEqual(1, this.Worksheet.Cells["D5"].Value);
+
+			this.Worksheet.Cells["D3"].Value = 1;
+			this.Worksheet.Cells["D5"].Calculate();
+			Assert.AreEqual(eErrorType.NA, ((ExcelErrorValue)this.Worksheet.Cells["D5"].Value).Type);
+		}
+
+		[TestMethod]
+		public void MatchBelowVerticalLookupValueArray()
+		{
+			this.Worksheet.Cells[2, 2].Value = 1;
+			this.Worksheet.Cells[3, 2].Value = 2;
+			this.Worksheet.Cells[4, 2].Value = 3;
+			this.Worksheet.Cells[5, 2].Value = 4;
+			this.Worksheet.Cells[6, 2].Formula = "MATCH(B2:B5, C3, 0)";
+			this.Worksheet.Cells[3, 3].Value = 4;
+			this.Worksheet.Cells[6, 2].Calculate();
+			Assert.AreEqual(eErrorType.NA, ((ExcelErrorValue)this.Worksheet.Cells[6, 2].Value).Type);
+		}
+
+		[TestMethod]
+		public void MatchNextToHorizontalLookupValueArray()
+		{
+			this.Worksheet.Cells[2, 2].Value = 1;
+			this.Worksheet.Cells[2, 3].Value = 2;
+			this.Worksheet.Cells[2, 4].Value = 3;
+			this.Worksheet.Cells[2, 5].Value = 4;
+			this.Worksheet.Cells[2, 6].Formula = "MATCH(B2:E2, C3, 0)";
+			this.Worksheet.Cells[3, 3].Value = 4;
+			this.Worksheet.Cells[2, 6].Calculate();
+			Assert.AreEqual(eErrorType.NA, ((ExcelErrorValue)this.Worksheet.Cells[2, 6].Value).Type);
+		}
+
+		[TestMethod]
+		public void MatchMultiDimensionalLookupValueArray()
+		{
+			this.Worksheet.Cells[2, 2].Value = 1;
+			this.Worksheet.Cells[3, 2].Value = 2;
+			this.Worksheet.Cells[4, 2].Value = 3;
+			this.Worksheet.Cells[2, 3].Value = 1;
+			this.Worksheet.Cells[3, 3].Value = 2;
+			this.Worksheet.Cells[4, 3].Value = 3;
+			this.Worksheet.Cells[2, 6].Formula = "MATCH(B2:D4, C3, 0)";
+			this.Worksheet.Cells[4, 4].Value = 4;
+			this.Worksheet.Cells[2, 6].Calculate();
+			Assert.AreEqual(eErrorType.Value, ((ExcelErrorValue)this.Worksheet.Cells[2, 6].Value).Type);
 		}
 		#endregion
 	}

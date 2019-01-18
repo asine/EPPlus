@@ -374,7 +374,7 @@ namespace OfficeOpenXml
 		internal static bool GetRowColFromAddress(string CellAddress, out int FromRow, out int FromColumn, out int ToRow, out int ToColumn)
 		{
 			bool fixedFromRow, fixedFromColumn, fixedToRow, fixedToColumn;
-			return GetRowColFromAddress(CellAddress, out FromRow, out FromColumn, out ToRow, out ToColumn, out fixedFromRow, out fixedFromColumn, out fixedToRow, out fixedToColumn);
+			return GetRowColFromAddress(CellAddress, out FromRow, out FromColumn, out ToRow, out ToColumn, out fixedFromRow, out fixedFromColumn, out fixedToRow, out fixedToColumn, out _, out _);
 		}
 		/// <summary>
 		/// Get the row/columns for a Cell-address
@@ -388,10 +388,14 @@ namespace OfficeOpenXml
 		/// <param name="fixedFromColumn">Is the from column fixed?</param>
 		/// <param name="fixedToRow">Is the to row fixed?</param>
 		/// <param name="fixedToColumn">Is the to column fixed?</param>
+		/// <param name="isFullRow">Indicates whether the address spans a full row.</param>
+		/// <param name="isFullColumn">Indicates whether the address spans a full column.</param>
 		/// <returns></returns>
-		internal static bool GetRowColFromAddress(string CellAddress, out int FromRow, out int FromColumn, out int ToRow, out int ToColumn, out bool fixedFromRow, out bool fixedFromColumn, out bool fixedToRow, out bool fixedToColumn)
+		internal static bool GetRowColFromAddress(string CellAddress, out int FromRow, out int FromColumn, out int ToRow, out int ToColumn, out bool fixedFromRow, out bool fixedFromColumn, out bool fixedToRow, out bool fixedToColumn, out bool isFullRow, out bool isFullColumn)
 		{
 			bool ret;
+			isFullRow = false;
+			isFullColumn = false;
 			if (CellAddress.IndexOf('[') > 0) //External reference or reference to Table or Pivottable.
 			{
 				FromRow = -1;
@@ -425,7 +429,16 @@ namespace OfficeOpenXml
 				string[] cells = CellAddress.Split(':');
 				ret = GetRowColFromAddress(cells[0], out FromRow, out FromColumn, out fixedFromRow, out fixedFromColumn);
 				if (ret)
+				{
 					ret = GetRowColFromAddress(cells[1], out ToRow, out ToColumn, out fixedToRow, out fixedToColumn);
+					if (ret)
+					{
+						if (FromRow == 0 && ToRow == 0)
+							isFullColumn = true;
+						if (FromColumn == 0 && ToColumn == 0)
+							 isFullRow = true;
+					}
+				}
 				else
 				{
 					GetRowColFromAddress(cells[1], out ToRow, out ToColumn, out fixedToRow, out fixedToColumn);
@@ -683,38 +696,16 @@ namespace OfficeOpenXml
 		/// <returns>The full address</returns>
 		public static string GetFullAddress(string worksheetName, string address)
 		{
-			return GetFullAddress(worksheetName, address, true);
-		}
-		internal static string GetFullAddress(string worksheetName, string address, bool fullRowCol)
-		{
 			if (address.IndexOf("!") == -1 || address == "#REF!")
 			{
-				if (fullRowCol)
-				{
 					string[] cells = address.Split(':');
 					if (cells.Length > 0)
 					{
 						var addressFormat = string.IsNullOrEmpty(worksheetName) ? "{1}" : "'{0}'!{1}";
 						address = string.Format(addressFormat, worksheetName, cells[0]);
 						if (cells.Length > 1)
-						{
 							address += string.Format(":{0}", cells[1]);
-						}
 					}
-				}
-				else
-				{
-					var a = new ExcelAddressBase(address);
-					if ((a._fromRow == 1 && a._toRow == ExcelPackage.MaxRows) || (a._fromCol == 1 && a._toCol == ExcelPackage.MaxColumns))
-					{
-						var addressFormat = string.IsNullOrEmpty(worksheetName) ? "{1}{2}:{3}{4}" : "'{0}'!{1}{2}:{3}{4}";
-						address = string.Format("'{0}'!{1}{2}:{3}{4}", worksheetName, ExcelAddress.GetColumnLetter(a._fromCol), a._fromRow, ExcelAddress.GetColumnLetter(a._toCol), a._toRow);
-					}
-					else
-					{
-						address = GetFullAddress(worksheetName, address, true);
-					}
-				}
 			}
 			return address;
 		}

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -10,40 +11,61 @@ namespace EPPlusTest.Utils
 	[TestClass]
 	public class ConvertUtilTest
 	{
+		#region TryParse Tests
 		[TestMethod]
-		public void TryParseNumericString()
+		public void ValidateNumberGroupSizesTest()
 		{
-			double result;
-			object numericString = null;
-			double expected = 0;
-			Assert.IsFalse(ConvertUtil.TryParseNumericString(numericString, out result));
-			Assert.AreEqual(expected, result);
-			expected = 1442.0;
-			numericString = expected.ToString("e", CultureInfo.CurrentCulture); // 1.442E+003
-			Assert.IsTrue(ConvertUtil.TryParseNumericString(numericString, out result));
-			Assert.AreEqual(expected, result);
-			numericString = expected.ToString("f0", CultureInfo.CurrentCulture); // 1442
-			Assert.IsTrue(ConvertUtil.TryParseNumericString(numericString, out result));
-			Assert.AreEqual(expected, result);
-			numericString = expected.ToString("f2", CultureInfo.CurrentCulture); // 1442.00
-			Assert.IsTrue(ConvertUtil.TryParseNumericString(numericString, out result));
-			Assert.AreEqual(expected, result);
-			numericString = expected.ToString("n", CultureInfo.CurrentCulture); // 1,442.0
-			Assert.IsTrue(ConvertUtil.TryParseNumericString(numericString, out result));
-			Assert.AreEqual(expected, result);
-			expected = -0.00526;
-			numericString = expected.ToString("e", CultureInfo.CurrentCulture); // -5.26E-003
-			Assert.IsTrue(ConvertUtil.TryParseNumericString(numericString, out result));
-			Assert.AreEqual(expected, result);
-			numericString = expected.ToString("f0", CultureInfo.CurrentCulture); // -0
-			Assert.IsTrue(ConvertUtil.TryParseNumericString(numericString, out result));
-			Assert.AreEqual(0.0, result);
-			numericString = expected.ToString("f3", CultureInfo.CurrentCulture); // -0.005
-			Assert.IsTrue(ConvertUtil.TryParseNumericString(numericString, out result));
-			Assert.AreEqual(-0.005, result);
-			numericString = expected.ToString("n6", CultureInfo.CurrentCulture); // -0.005260
-			Assert.IsTrue(ConvertUtil.TryParseNumericString(numericString, out result));
-			Assert.AreEqual(expected, result);
+			Assert.IsFalse(ConvertUtil.ValidateNumberGroupSizes(null, CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("1.442E+003", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("1442", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("1442.00", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("1,442.0", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("-5.26E-003", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("-0", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("-0.005", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("-0.005260", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("2,345,656,567", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("123", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("12345", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("-12345", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("-12,345", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("-122,345", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsFalse(ConvertUtil.ValidateNumberGroupSizes("2,3,45,656,567", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsFalse(ConvertUtil.ValidateNumberGroupSizes("23,45,656,567", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsFalse(ConvertUtil.ValidateNumberGroupSizes("2345656,567", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsFalse(ConvertUtil.ValidateNumberGroupSizes("2345656567,", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsFalse(ConvertUtil.ValidateNumberGroupSizes("2,345,656,567,", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsFalse(ConvertUtil.ValidateNumberGroupSizes(",567", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsFalse(ConvertUtil.ValidateNumberGroupSizes("-,567", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsFalse(ConvertUtil.ValidateNumberGroupSizes("2,345,656,7.45E-003", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("2,345,656,567E+003", CultureInfo.CurrentCulture.NumberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("2,345,656,567.45E-003", CultureInfo.CurrentCulture.NumberFormat));
+
+			var numberFormat = new NumberFormatInfo { NumberGroupSizes = new int[4] { 2, 3, 4, 0 }, NumberGroupSeparator = "*" };
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("1", numberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("12", numberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("123", numberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("1*23", numberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("123*23", numberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("6*123*23", numberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("9876*123*23", numberFormat));
+			Assert.IsFalse(ConvertUtil.ValidateNumberGroupSizes("99876*123*23", numberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("9*9876*123*23", numberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("1231239*9876*123*23", numberFormat));
+
+			numberFormat = new NumberFormatInfo { NumberGroupSizes = new int[2] { 2, 3,}, NumberGroupSeparator = "*", NumberDecimalSeparator = "#", NegativeSign = "_" };
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("_123*23#23", numberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("6*123*23#", numberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("126*123*23#8989", numberFormat));
+			Assert.IsFalse(ConvertUtil.ValidateNumberGroupSizes("9126*123*23", numberFormat));
+
+			numberFormat = new NumberFormatInfo { NumberGroupSizes = new int[0] };
+			Assert.IsFalse(ConvertUtil.ValidateNumberGroupSizes("2,345", numberFormat));
+			Assert.IsTrue(ConvertUtil.ValidateNumberGroupSizes("2345", numberFormat));
+
+			// In German, the "." is both the date seperator and the number group seperator.
+			numberFormat = new CultureInfo("de-DE").NumberFormat;
+			Assert.IsFalse(ConvertUtil.ValidateNumberGroupSizes("1.1", numberFormat));
 		}
 
 		[TestMethod]
@@ -75,7 +97,9 @@ namespace EPPlusTest.Utils
 			Assert.IsTrue(ConvertUtil.TryParseDateString(dateString, out result));
 			Assert.AreEqual(new DateTime(2013, 1, 15, 15, 26, 0), result);
 		}
+		#endregion
 
+		#region IsNumeric Tests
 		[TestMethod]
 		public void IsNumeric()
 		{
@@ -96,7 +120,9 @@ namespace EPPlusTest.Utils
 			Assert.IsTrue(ConvertUtil.IsNumeric(new DateTime(2000, 1, 1)));
 			Assert.IsTrue(ConvertUtil.IsNumeric(new TimeSpan(5, 0, 0, 0)));
 		}
+		#endregion
 
+		#region GetValueDouble Tests
 		[TestMethod]
 		public void GetValueDouble()
 		{
@@ -117,128 +143,138 @@ namespace EPPlusTest.Utils
 			Assert.AreEqual(0d, ConvertUtil.GetValueDouble("Not a number"));
 			Assert.AreEqual(double.NaN, ConvertUtil.GetValueDouble("Not a number", false, true));
 		}
+		#endregion
 
-		#region TryParseDateObjectToOADate Tests
+		#region TryParseObjectToDecimal Tests
 		[TestMethod]
-		public void TryParseDateObjectToOADateParsesDateTimeObject()
+		public void TryParseObjectToDecimalParsesDateTimeObject()
 		{
 			var date = new DateTime(1900, 3, 1);
-			var isValidDate = ConvertUtil.TryParseDateObjectToOADate(date, out double OADate);
+			var isValidDate = ConvertUtil.TryParseObjectToDecimal(date, out double OADate);
 			Assert.AreEqual(true, isValidDate);
 			Assert.AreEqual(date.ToOADate(), OADate);
 		}
 
 		[TestMethod]
-		public void TryParseDateObjectToOADateParsesInt()
+		public void TryParseObjectToDecimalParsesInt()
 		{
 			var expectedDate = new DateTime(1900, 3, 1);
-			var isValidDate = ConvertUtil.TryParseDateObjectToOADate(61, out double OADate);
+			var isValidDate = ConvertUtil.TryParseObjectToDecimal(61, out double OADate);
 			Assert.AreEqual(true, isValidDate);
 			Assert.AreEqual(expectedDate.ToOADate(), OADate);
 		}
 
 		[TestMethod]
-		public void TryParseDateObjectToOADateParsesDouble()
+		public void TryParseObjectToDecimalParsesDouble()
 		{
 			var expectedDate = new DateTime(1900, 3, 1, 12, 0, 0);
-			var isValidDate = ConvertUtil.TryParseDateObjectToOADate(61.5, out double OADate);
+			var isValidDate = ConvertUtil.TryParseObjectToDecimal(61.5, out double OADate);
 			Assert.AreEqual(true, isValidDate);
 			Assert.AreEqual(expectedDate.ToOADate(), OADate);
 		}
 
 		[TestMethod]
-		public void TryParseDateObjectToOADateParsesNegativeInt()
+		public void TryParseObjectToDecimalParsesDecimal()
 		{
-			var isValidDate = ConvertUtil.TryParseDateObjectToOADate(-1, out double OADate);
+			var expectedDate = new DateTime(1900, 3, 1, 12, 0, 0);
+			var isValidDate = ConvertUtil.TryParseObjectToDecimal((decimal)61.5, out double OADate);
+			Assert.AreEqual(true, isValidDate);
+			Assert.AreEqual(expectedDate.ToOADate(), OADate);
+		}
+
+		[TestMethod]
+		public void TryParseObjectToDecimalParsesNegativeInt()
+		{
+			var isValidDate = ConvertUtil.TryParseObjectToDecimal(-1, out double OADate);
 			Assert.AreEqual(true, isValidDate);
 			Assert.AreEqual(-1, OADate);
 		}
 
 		[TestMethod]
-		public void TryParseDateObjectToOADateParsesNegativeDouble()
+		public void TryParseObjectToDecimalParsesNegativeDouble()
 		{
-			var isValidDate = ConvertUtil.TryParseDateObjectToOADate(-1.5, out double OADate);
+			var isValidDate = ConvertUtil.TryParseObjectToDecimal(-1.5, out double OADate);
 			Assert.AreEqual(true, isValidDate);
 			Assert.AreEqual(-1.5, OADate);
 		}
 
 		[TestMethod]
-		public void TryParseDateObjectToOADateParsesZero()
+		public void TryParseObjectToDecimalParsesZero()
 		{
-			var isValidDate = ConvertUtil.TryParseDateObjectToOADate(0, out double OADate);
+			var isValidDate = ConvertUtil.TryParseObjectToDecimal(0, out double OADate);
 			Assert.AreEqual(true, isValidDate);
 			Assert.AreEqual(0, OADate);
 		}
 
 		[TestMethod]
-		public void TryParseDateObjectToOADateParsesIntWithinString()
+		public void TryParseObjectToDecimalParsesIntWithinString()
 		{
 			var expectedDate = new DateTime(1900, 3, 1);
-			var isValidDate = ConvertUtil.TryParseDateObjectToOADate("61", out double OADate);
+			var isValidDate = ConvertUtil.TryParseObjectToDecimal("61", out double OADate);
 			Assert.AreEqual(true, isValidDate);
 			Assert.AreEqual(expectedDate.ToOADate(), OADate);
 		}
 
 		[TestMethod]
-		public void TryParseDateObjectToOADateParsesDoubleWithinString()
+		public void TryParseObjectToDecimalParsesDoubleWithinString()
 		{
 			var expectedDate = new DateTime(1900, 3, 1, 12, 0, 0);
-			var isValidDate = ConvertUtil.TryParseDateObjectToOADate("61.5", out double OADate);
+			var isValidDate = ConvertUtil.TryParseObjectToDecimal("61.5", out double OADate);
 			Assert.AreEqual(true, isValidDate);
 			Assert.AreEqual(expectedDate.ToOADate(), OADate);
 		}
 
 		[TestMethod]
-		public void TryParseDateObjectToOADateParsesNegativeIntWithinString()
+		public void TryParseObjectToDecimalParsesNegativeIntWithinString()
 		{
-			var isValidDate = ConvertUtil.TryParseDateObjectToOADate("-1", out double OADate);
+			var isValidDate = ConvertUtil.TryParseObjectToDecimal("-1", out double OADate);
 			Assert.AreEqual(true, isValidDate);
 			Assert.AreEqual(-1, OADate);
 		}
 
 		[TestMethod]
-		public void TryParseDateObjectToOADateParsesNegativeDoubleWithinString()
+		public void TryParseObjectToDecimalParsesNegativeDoubleWithinString()
 		{
-			var isValidDate = ConvertUtil.TryParseDateObjectToOADate("-1.5", out double OADate);
+			var isValidDate = ConvertUtil.TryParseObjectToDecimal("-1.5", out double OADate);
 			Assert.AreEqual(true, isValidDate);
 			Assert.AreEqual(-1.5, OADate);
 		}
 
 		[TestMethod]
-		public void TryParseDateObjectToOADateDoesNotParseNonDateString()
+		public void TryParseObjectToDecimalDoesNotParseNonDateString()
 		{
-			var isValidDate = ConvertUtil.TryParseDateObjectToOADate("word", out double OADate);
+			var isValidDate = ConvertUtil.TryParseObjectToDecimal("word", out double OADate);
 			Assert.AreEqual(false, isValidDate);
 			Assert.AreEqual(-1.0, OADate);
 		}
 
 		[TestMethod]
-		public void TryParseDateObjectToOADateParsesDateAsString()
+		public void TryParseObjectToDecimalParsesDateAsString()
 		{
 			var expectedDate = new DateTime(1900, 3, 1, 5, 56, 59);
-			var isValidDate = ConvertUtil.TryParseDateObjectToOADate("3/1/1900 5:56:59", out double OADate);
+			var isValidDate = ConvertUtil.TryParseObjectToDecimal("3/1/1900 5:56:59", out double OADate);
 			Assert.AreEqual(true, isValidDate);
 			Assert.AreEqual(expectedDate.ToOADate(), OADate);
 		}
 
 		[TestMethod]
-		public void TryParseDateObjectToOADateParsesDoublesInStringsAsDoublesCorrectly()
+		public void TryParseObjectToDecimalParsesDoublesInStringsAsDoublesCorrectly()
 		{
 			var testNumber = "1.11";
-			var isValidOADate = ConvertUtil.TryParseDateObjectToOADate(testNumber, out double OADate);
+			var isValidOADate = ConvertUtil.TryParseObjectToDecimal(testNumber, out double OADate);
 			Assert.IsTrue(isValidOADate);
 			Assert.AreEqual(1.11, OADate);
 		}
 
 		[TestMethod]
-		public void TryParseDateObjectToOADateParsesMilitaryTime()
+		public void TryParseObjectToDecimalParsesMilitaryTime()
 		{
-			Assert.IsTrue(ConvertUtil.TryParseDateObjectToOADate("23:59", out double oaDate));
+			Assert.IsTrue(ConvertUtil.TryParseObjectToDecimal("23:59", out double oaDate));
 			Assert.AreEqual(0.99, oaDate, 0.01);
 		}
 
 		[TestMethod]
-		public void TryParseDateObjectToOADateParsesStringsCorrectly()
+		public void TryParseObjectToDecimalParsesStringsCorrectly()
 		{
 			var currentCulture = CultureInfo.CurrentCulture;
 			try
@@ -248,21 +284,21 @@ namespace EPPlusTest.Utils
 				{
 					// This should parse as a decimal value under the US culture.
 					var decimalValue = "1.11";
-					var isValidDate = ConvertUtil.TryParseDateObjectToOADate(decimalValue, out double parseResult);
+					var isValidDate = ConvertUtil.TryParseObjectToDecimal(decimalValue, out double parseResult);
 					Assert.IsTrue(isValidDate);
 					Assert.AreEqual(1.11, parseResult);
 					// DateTime parses this as a date (M.DD.YYYY) under the US culture,
 					// but Excel does not recognize this as a valid date format under the US culture.
 					var dateValue = "1.11.2017";
 					var expectedDate = new DateTime(2017, 1, 11);
-					isValidDate = ConvertUtil.TryParseDateObjectToOADate(dateValue, out parseResult);
+					isValidDate = ConvertUtil.TryParseObjectToDecimal(dateValue, out parseResult);
 					Assert.IsTrue(isValidDate);
 					Assert.AreEqual(expectedDate.ToOADate(), parseResult);
 					// DateTime parses this as a valid date under the US culture,
 					// but Excel does not recognize this as a valid date format under the US culture.
 					var USShortDate = "1,11";
 					expectedDate = new DateTime(DateTime.Today.Year, 1, 11);
-					isValidDate = ConvertUtil.TryParseDateObjectToOADate(USShortDate, out parseResult);
+					isValidDate = ConvertUtil.TryParseObjectToDecimal(USShortDate, out parseResult);
 					Assert.IsTrue(isValidDate);
 					Assert.AreEqual(expectedDate.ToOADate(), parseResult);
 				}
@@ -271,19 +307,19 @@ namespace EPPlusTest.Utils
 				{
 					// This should parse as a date (D.MM.CurrentYear) under the German culture.
 					var GermanShortDate = "1.11";
-					var isValidDate = ConvertUtil.TryParseDateObjectToOADate(GermanShortDate, out double parseResult);
+					var isValidDate = ConvertUtil.TryParseObjectToDecimal(GermanShortDate, out double parseResult);
 					var expectedDate = new DateTime(DateTime.Today.Year, 11, 1);
 					Assert.IsTrue(isValidDate);
 					Assert.AreEqual(expectedDate.ToOADate(), parseResult);
 					// This should parse as a date (D.MM.YYYY) under the German culture.
 					var GermanDate = "1.11.2017";
 					expectedDate = new DateTime(2017, 11, 1);
-					isValidDate = ConvertUtil.TryParseDateObjectToOADate(GermanDate, out parseResult);
+					isValidDate = ConvertUtil.TryParseObjectToDecimal(GermanDate, out parseResult);
 					Assert.IsTrue(isValidDate);
 					Assert.AreEqual(expectedDate.ToOADate(), parseResult);
 					// This should parse as a decimal value under the German culture.
 					var GermanDecimalValue = "1,11";
-					isValidDate = ConvertUtil.TryParseDateObjectToOADate(GermanDecimalValue, out parseResult);
+					isValidDate = ConvertUtil.TryParseObjectToDecimal(GermanDecimalValue, out parseResult);
 					Assert.IsTrue(isValidDate);
 					Assert.AreEqual(1.11, parseResult);
 				}
@@ -303,7 +339,7 @@ namespace EPPlusTest.Utils
 			// properly replicate Excel's behavior with dates of this format in EPPlus.
 			var expectedDate = new DateTime(2017, 1, 11);
 			var testNumber = "1.11.2017";
-			var isValidDate = ConvertUtil.TryParseDateObjectToOADate(testNumber, out double OADate);
+			var isValidDate = ConvertUtil.TryParseObjectToDecimal(testNumber, out double OADate);
 			Assert.AreEqual(expectedDate.ToOADate(), OADate);
 		}
 		#endregion
@@ -499,6 +535,28 @@ namespace EPPlusTest.Utils
 			var isValidDate = ConvertUtil.TryParseDateObject(0.5, out DateTime resultDate, out eErrorType? resultError);
 			Assert.AreEqual(false, isValidDate);
 			Assert.AreEqual(eErrorType.Num, resultError);
+		}
+		#endregion
+
+		#region ConvertObjectToXmlAttributeString Tests
+		[TestMethod]
+		public void ConvertObjectToXmlAttributeString()
+		{
+			var dateTime = DateTime.Now;
+			Assert.AreEqual(dateTime.ToString("yyyy’-‘MM’-‘dd’T’HH’:’mm’:’ss"), ConvertUtil.ConvertObjectToXmlAttributeString(dateTime));
+			Assert.IsNull(ConvertUtil.ConvertObjectToXmlAttributeString(null));
+			Assert.AreEqual("832", ConvertUtil.ConvertObjectToXmlAttributeString(832));
+			Assert.AreEqual("832.382", ConvertUtil.ConvertObjectToXmlAttributeString(832.382));
+			Assert.AreEqual("jet", ConvertUtil.ConvertObjectToXmlAttributeString("jet"));
+			Assert.AreEqual("0", ConvertUtil.ConvertObjectToXmlAttributeString(false));
+			Assert.AreEqual("#NAME?", ConvertUtil.ConvertObjectToXmlAttributeString(ExcelErrorValue.Create(eErrorType.Name)));
+		}
+
+		[TestMethod]
+		[ExpectedException(typeof(InvalidOperationException))]
+		public void ConvertObjectToXmlAttributeStringInvalidType()
+		{
+			ConvertUtil.ConvertObjectToXmlAttributeString(new List<int>());
 		}
 		#endregion
 	}

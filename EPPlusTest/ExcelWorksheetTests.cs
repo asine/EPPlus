@@ -9,9 +9,10 @@ using System.Reflection;
 using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OfficeOpenXml;
+using OfficeOpenXml.ConditionalFormatting;
+using OfficeOpenXml.DataValidation;
 using OfficeOpenXml.Drawing;
 using OfficeOpenXml.Drawing.Chart;
-using OfficeOpenXml.Drawing.Vml;
 using OfficeOpenXml.Style;
 using OfficeOpenXml.Table;
 using OfficeOpenXml.Table.PivotTable;
@@ -25,6 +26,7 @@ namespace EPPlusTest
 		[TestMethod]
 		public void RunWorksheetTests()
 		{
+			// TODO (Task #8178): Fix grouping/test.
 			InsertDeleteTestRows();
 			InsertDeleteTestColumns();
 			LoadData();
@@ -319,8 +321,10 @@ namespace EPPlusTest
 			using (ExcelPackage pck = new ExcelPackage(instream))
 			{
 				var ws = pck.Workbook.Worksheets["Names"];
-				Assert.AreEqual(ws.Names["FullCol"].Start.Row, 1);
-				Assert.AreEqual(ws.Names["FullCol"].End.Row, ExcelPackage.MaxRows);
+
+				var address = new ExcelAddress(ws.Names["FullCol"].NameFormula);
+				Assert.AreEqual(1, address.Start.Row);
+				Assert.AreEqual(ExcelPackage.MaxRows, address.End.Row);
 				pck.SaveAs(stream);
 			}
 			instream.Close();
@@ -398,13 +402,6 @@ namespace EPPlusTest
 			ws.Cells["D30"].Style.Font.Bold = true;
 			ws.Cells["D30"].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Right;
 
-			ws.Workbook.Names.Add("TestName", ws.Cells["B30:E30"]);
-			ws.Workbook.Names["TestName"].Style.Font.Color.SetColor(Color.Red);
-
-
-			ws.Workbook.Names["TestName"].Offset(1, 0).Value = "Offset test 1";
-			ws.Workbook.Names["TestName"].Offset(2, -1, 2, 2).Value = "Offset test 2";
-
 			//Test vertical align
 			ws.Cells["E19"].Value = "Subscript";
 			ws.Cells["E19"].Style.Font.VerticalAlign = ExcelVerticalAlignmentFont.Subscript;
@@ -413,7 +410,6 @@ namespace EPPlusTest
 			ws.Cells["E21"].Value = "Superscript";
 			ws.Cells["E21"].Style.Font.VerticalAlign = ExcelVerticalAlignmentFont.Superscript;
 			ws.Cells["E21"].Style.Font.VerticalAlign = ExcelVerticalAlignmentFont.None;
-
 
 			ws.Cells["E22"].Value = "Indent 2";
 			ws.Cells["E22"].Style.Indent = 2;
@@ -429,7 +425,6 @@ namespace EPPlusTest
 			ws.Cells["e27"].Value = "Default Readingorder";
 
 			//Underline
-
 			ws.Cells["F1:F7"].Value = "Underlined";
 			ws.Cells["F1"].Style.Font.UnderLineType = ExcelUnderLineType.Single;
 			ws.Cells["F2"].Style.Font.UnderLineType = ExcelUnderLineType.Double;
@@ -455,7 +450,7 @@ namespace EPPlusTest
 				System.Diagnostics.Debug.WriteLine(cell.Address);
 			}
 
-			////Linq test
+			// Linq test
 			var res = from c in ws.Cells[ws.Dimension.Address] where c.Value != null && c.Value.ToString() == "Offset test 1" select c;
 
 			foreach (ExcelRangeBase cell in res)
@@ -643,7 +638,7 @@ namespace EPPlusTest
 			//Assert.AreEqual(range.End.Row, 100);
 			//Assert.AreEqual(range.End.Address, "D100");
 
-			//ExcelAddress addr = new ExcelAddress("B1:D3");
+			//ExcelAddress addr = new ExcelAddressBase("B1:D3");
 
 			//Assert.AreEqual(addr.Start.Column, 2);
 			//Assert.AreEqual(addr.Start.Row, 1);
@@ -721,33 +716,17 @@ namespace EPPlusTest
 			comment.RichText[0].Bold = true;
 			comment.RichText[0].PreserveSpace = true;
 			var rt = comment.RichText.Add("Test comment");
-			comment.VerticalAlignment = eTextAlignVerticalVml.Center;
 			comment = ws.Comments.Add(ws.Cells["A2"], "Jan Källman\r\nAuthor\r\n1", "JK");
 
 			comment = ws.Comments.Add(ws.Cells["A1"], "Jan Källman\r\nAuthor\r\n2", "JK");
-			comment.AlternativeText = "Test of AlternetiveText2";
 			comment = ws.Comments.Add(ws.Cells["C2"], "Jan Källman\r\nAuthor\r\n3", "JK");
 			comment = ws.Comments.Add(ws.Cells["C1"], "Jan Källman\r\nAuthor\r\n5", "JK");
 			comment = ws.Comments.Add(ws.Cells["B1"], "Jan Källman\r\nAuthor\r\n7", "JK");
 
 			ws.Comments.Remove(ws.Cells["A2"].Comment);
-			//comment.HorizontalAlignment = eTextAlignHorizontalVml.Center;
-			//comment.Visible = true;
-			//comment.BackgroundColor = Color.Green;
-			//comment.To.Row += 4;
-			//comment.To.Column += 2;
-			//comment.LineStyle = eLineStyleVml.LongDash;
-			//comment.LineColor = Color.Red;
-			//comment.LineWidth = (Single)2.5;
-			//rt.Color = Color.Red;
-
 			var rt2 = ws.Cells["B2"].AddComment("Range Added Comment test test test test test test test test test test testtesttesttesttesttesttesttesttesttesttest", "Jan Källman");
-			ws.Cells["c3"].Comment.AutoFit = true;
-
 		}
 
-		//[Ignore]
-		//[TestMethod]
 		public void Address()
 		{
 			var ws = _pck.Workbook.Worksheets.Add("Address");
@@ -782,8 +761,6 @@ namespace EPPlusTest
 			namedStyle.Style.Font.Color.SetColor(Color.Blue);
 		}
 
-		//[Ignore]
-		//[TestMethod]
 		public void Encoding()
 		{
 			var ws = _pck.Workbook.Worksheets.Add("Encoding");
@@ -793,12 +770,12 @@ namespace EPPlusTest
 			ws.Cells["A4"].Value = "test" + (char)31;   //Bug issue 14689 //Fixed
 		}
 
-		//[Ignore]
-		//[TestMethod]
 		public void WorksheetCopy()
 		{
 			var ws = _pck.Workbook.Worksheets.Add("Copied Address", _pck.Workbook.Worksheets["Address"]);
 			var wsCopy = _pck.Workbook.Worksheets.Add("Copied Comment", _pck.Workbook.Worksheets["Comment"]);
+			Assert.AreEqual(6, _pck.Workbook.Worksheets["Comment"].Comments.Count);
+			Assert.AreEqual(6, wsCopy.Comments.Count);
 
 			ExcelPackage pck2 = new ExcelPackage();
 			pck2.Workbook.Worksheets.Add("Copy From other pck", _pck.Workbook.Worksheets["Address"]);
@@ -825,8 +802,6 @@ namespace EPPlusTest
 			pack.Save();
 		}
 
-		//[Ignore]
-		//[TestMethod]
 		public void LoadFromCollectionTest()
 		{
 			var ws = _pck.Workbook.Worksheets.Add("LoadFromCollection");
@@ -851,13 +826,11 @@ namespace EPPlusTest
 			ws.Cells["A15"].Value = ints;
 		}
 
-		//[TestMethod]
 		public void LoadFromEmptyCollectionTest()
 		{
 			if (_pck == null) _pck = new ExcelPackage();
 			var ws = _pck.Workbook.Worksheets.Add("LoadFromEmpyCollection");
 			List<TestDTO> listDTO = new List<TestDTO>(0);
-			//List<int> list = new List<int>(0);
 
 			ws.Cells["A1"].LoadFromCollection(listDTO, true);
 			ws.Cells["A5"].LoadFromCollection(listDTO, true, OfficeOpenXml.Table.TableStyles.Medium9, BindingFlags.Instance | BindingFlags.Instance, typeof(TestDTO).GetFields());
@@ -874,7 +847,6 @@ namespace EPPlusTest
 			if (_pck == null) _pck = new ExcelPackage();
 			var ws = _pck.Workbook.Worksheets.Add("LoadFromEmpyCollection");
 			List<TestDTO> listDTO = new List<TestDTO>(0) { new TestDTO() { Name = "Single" } };
-			//List<int> list = new List<int>(0);
 
 			var r = ws.Cells["A1"].LoadFromCollection(listDTO, true);
 			Assert.AreEqual(2, r.Rows);
@@ -905,7 +877,7 @@ namespace EPPlusTest
 			if (newFile.Exists)
 			{
 				newFile.Delete();  // ensures we create a new workbook
-										 //newFile = new FileInfo(dir + @"sample8.xlsx");
+				//newFile = new FileInfo(dir + @"sample8.xlsx");
 			}
 
 			ExcelPackage package = new ExcelPackage();
@@ -923,8 +895,6 @@ namespace EPPlusTest
 
 		}
 
-		//[Ignore]
-		//[TestMethod]
 		public void HideTest()
 		{
 			var ws = _pck.Workbook.Worksheets.Add("Hidden");
@@ -932,19 +902,14 @@ namespace EPPlusTest
 			ws.Hidden = eWorkSheetHidden.Hidden;
 		}
 
-		//[Ignore]
-		//[TestMethod]
 		public void Hyperlink()
 		{
 			var ws = _pck.Workbook.Worksheets.Add("HyperLinks");
 			var hl = new ExcelHyperLink("G1", "Till G1");
 			hl.ToolTip = "Link to cell G1";
 			ws.Cells["A1"].Hyperlink = hl;
-			//ws.Cells["A2"].Hyperlink = new ExcelHyperLink("mailto:ecsomany@google:huszar", UriKind.Absolute); //Invalid URL will throw an Exception
 		}
 
-		//[Ignore]
-		//[TestMethod]
 		public void VeryHideTest()
 		{
 			var ws = _pck.Workbook.Worksheets.Add("VeryHidden");
@@ -952,8 +917,6 @@ namespace EPPlusTest
 			ws.Hidden = eWorkSheetHidden.VeryHidden;
 		}
 
-		//[Ignore]
-		//[TestMethod]
 		public void PrinterSettings()
 		{
 			var ws = _pck.Workbook.Worksheets.Add("Sod/Hydroseed");
@@ -992,8 +955,6 @@ namespace EPPlusTest
 			ws.PrinterSettings.PaperSize = ePaperSize.A4;
 		}
 
-		//[Ignore]
-		//[TestMethod]
 		public void StyleNameTest()
 		{
 			var ws = _pck.Workbook.Worksheets.Add("StyleNameTest");
@@ -1017,8 +978,6 @@ namespace EPPlusTest
 			ws.Protection.IsProtected = true;
 		}
 
-		//[Ignore]
-		//[TestMethod]
 		public void ValueError()
 		{
 			var ws = _pck.Workbook.Worksheets.Add("ValueError");
@@ -1030,8 +989,6 @@ namespace EPPlusTest
 			TestContext.WriteLine(rt.Bold.ToString());
 		}
 
-		//[Ignore]
-		//[TestMethod]
 		public void FormulaError()
 		{
 			var ws = _pck.Workbook.Worksheets.Add("FormulaError");
@@ -1042,8 +999,6 @@ namespace EPPlusTest
 
 			ws = _pck.Workbook.Worksheets.Add("Sheet-RC1");
 			ws.Cells["A4"].FormulaR1C1 = "+ROUNDUP('Sheet-RC1'!RC[1]/10,0)*10";
-
-			//ws.Cells["B2:I2"].Formula = "";   //Error
 		}
 
 		[TestMethod, Ignore]
@@ -1056,8 +1011,6 @@ namespace EPPlusTest
 			_pck.SaveAs(new FileInfo("c:\\temp\\arrayformula.xlsx"));
 		}
 
-		//[Ignore]
-		//[TestMethod]
 		public void PictureURL()
 		{
 			var ws = _pck.Workbook.Worksheets.Add("Pic URL");
@@ -1210,6 +1163,128 @@ namespace EPPlusTest
 		}
 
 		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\Sparkline Demos.xlsx")]
+		public void InsertColumnUpdatesSparklines()
+		{
+			var file = new FileInfo("Sparkline Demos.xlsx");
+			Assert.IsTrue(file.Exists);
+			var temp = Path.GetTempFileName();
+			File.Delete(temp);
+			var copy = file.CopyTo(temp);
+			try
+			{
+				using (var package = new ExcelPackage(copy))
+				{
+					var sheet1 = package.Workbook.Worksheets["Sheet1"];
+					var sparklines = sheet1.SparklineGroups.SparklineGroups;
+					Assert.AreEqual(7, sparklines.Count);
+					sheet1.InsertColumn(5, 1);
+					Assert.AreEqual(7, sparklines.Count);
+					Assert.AreEqual("Sheet2!B2:I2", sparklines[6].Sparklines[0].Formula.Address);
+					Assert.AreEqual("C12", sparklines[6].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!D6:G6", sparklines[5].Sparklines[0].Formula.Address);
+					Assert.AreEqual("H6", sparklines[5].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!D7:G7", sparklines[4].Sparklines[0].Formula.Address);
+					Assert.AreEqual("H7", sparklines[4].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!D8:G8", sparklines[3].Sparklines[0].Formula.Address);
+					Assert.AreEqual("H8", sparklines[3].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!D6:D8", sparklines[2].Sparklines[0].Formula.Address);
+					Assert.AreEqual("D9", sparklines[2].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!F6:F8", sparklines[1].Sparklines[0].Formula.Address);
+					Assert.AreEqual("F9", sparklines[1].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!G6:G8", sparklines[0].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G9", sparklines[0].Sparklines[0].HostCell.Address);
+					package.Save();
+				}
+				using (var package = new ExcelPackage(copy))
+				{
+					var sheet1 = package.Workbook.Worksheets["Sheet1"];
+					var sparklines = sheet1.SparklineGroups.SparklineGroups;
+					Assert.AreEqual(7, sparklines.Count);
+					Assert.AreEqual("Sheet2!B2:I2", sparklines[6].Sparklines[0].Formula.Address);
+					Assert.AreEqual("C12", sparklines[6].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!D6:G6", sparklines[5].Sparklines[0].Formula.Address);
+					Assert.AreEqual("H6", sparklines[5].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!D7:G7", sparklines[4].Sparklines[0].Formula.Address);
+					Assert.AreEqual("H7", sparklines[4].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!D8:G8", sparklines[3].Sparklines[0].Formula.Address);
+					Assert.AreEqual("H8", sparklines[3].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!D6:D8", sparklines[2].Sparklines[0].Formula.Address);
+					Assert.AreEqual("D9", sparklines[2].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!F6:F8", sparklines[1].Sparklines[0].Formula.Address);
+					Assert.AreEqual("F9", sparklines[1].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!G6:G8", sparklines[0].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G9", sparklines[0].Sparklines[0].HostCell.Address);
+				}
+			}
+			finally
+			{
+				copy.Delete();
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\Sparkline Demos.xlsx")]
+		public void InsertRowUpdatesSparklines()
+		{
+			var file = new FileInfo("Sparkline Demos.xlsx");
+			Assert.IsTrue(file.Exists);
+			var temp = Path.GetTempFileName();
+			File.Delete(temp);
+			var copy = file.CopyTo(temp);
+			try
+			{
+				using (var package = new ExcelPackage(copy))
+				{
+					var sheet1 = package.Workbook.Worksheets["Sheet1"];
+					var sparklines = sheet1.SparklineGroups.SparklineGroups;
+					Assert.AreEqual(7, sparklines.Count);
+					sheet1.InsertRow(7, 1);
+					Assert.AreEqual(7, sparklines.Count);
+					Assert.AreEqual("Sheet2!B2:I2", sparklines[6].Sparklines[0].Formula.Address);
+					Assert.AreEqual("C13", sparklines[6].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!D6:F6", sparklines[5].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G6", sparklines[5].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!D8:F8", sparklines[4].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G8", sparklines[4].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!D9:F9", sparklines[3].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G9", sparklines[3].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!D6:D9", sparklines[2].Sparklines[0].Formula.Address);
+					Assert.AreEqual("D10", sparklines[2].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!E6:E9", sparklines[1].Sparklines[0].Formula.Address);
+					Assert.AreEqual("E10", sparklines[1].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!F6:F9", sparklines[0].Sparklines[0].Formula.Address);
+					Assert.AreEqual("F10", sparklines[0].Sparklines[0].HostCell.Address);
+					package.Save();
+				}
+				using (var package = new ExcelPackage(copy))
+				{
+					var sheet1 = package.Workbook.Worksheets["Sheet1"];
+					var sparklines = sheet1.SparklineGroups.SparklineGroups;
+					Assert.AreEqual(7, sparklines.Count);
+					Assert.AreEqual("Sheet2!B2:I2", sparklines[6].Sparklines[0].Formula.Address);
+					Assert.AreEqual("C13", sparklines[6].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!D6:F6", sparklines[5].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G6", sparklines[5].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!D8:F8", sparklines[4].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G8", sparklines[4].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!D9:F9", sparklines[3].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G9", sparklines[3].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!D6:D9", sparklines[2].Sparklines[0].Formula.Address);
+					Assert.AreEqual("D10", sparklines[2].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!E6:E9", sparklines[1].Sparklines[0].Formula.Address);
+					Assert.AreEqual("E10", sparklines[1].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("'Sheet1'!F6:F9", sparklines[0].Sparklines[0].Formula.Address);
+					Assert.AreEqual("F10", sparklines[0].Sparklines[0].HostCell.Address);
+				}
+			}
+			finally
+			{
+				copy.Delete();
+			}
+		}
+
+		[TestMethod]
 		public void CopyRowSetsOutlineLevelsCorrectly()
 		{
 			using (var package = new ExcelPackage())
@@ -1288,8 +1363,6 @@ namespace EPPlusTest
 			}
 		}
 
-		//[Ignore]
-		//[TestMethod]
 		public void TableTest()
 		{
 			var ws = _pck.Workbook.Worksheets.Add("Table");
@@ -1575,12 +1648,11 @@ namespace EPPlusTest
 			ws.Cells["A1"].Style.Font.Size = 8.5F;
 
 			ws.Names.Add("Address", ws.Cells["A2:A3"]);
-			ws.Cells["Address"].Value = 1;
-			ws.Names.AddValue("Value", 5);
+			ws.Names["Address"].NameFormula = "1";
+			ws.Names.Add("Value", "5");
 			ws.Names.Add("FullRow", ws.Cells["2:2"]);
 			ws.Names.Add("FullCol", ws.Cells["A:A"]);
-			//ws.Names["Value"].Style.Border.Bottom.Color.SetColor(Color.Black);
-			ws.Names.AddFormula("Formula", "Names!A2+Names!A3+Names!Value");
+			ws.Names.Add("Formula", "Names!A2+Names!A3+Names!Value");
 		}
 
 		[Ignore]
@@ -2106,7 +2178,8 @@ namespace EPPlusTest
 			wsPivot6.Drawings.AddChart("Pivotchart6", OfficeOpenXml.Drawing.Chart.eChartType.BarStacked3D, pt);
 
 			pt = wsPivot7.PivotTables.Add(wsPivot7.Cells["A3"], ws.Cells["K1:N11"], "Pivottable7");
-			pt.PageFields.Add(pt.Fields[1]);
+			// Commented out because this is not how page fields work.
+			//pt.PageFields.Add(pt.Fields[1]);
 			pt.RowFields.Add(pt.Fields[0]);
 			pt.DataFields.Add(pt.Fields[3]);
 			pt.DataFields.Add(pt.Fields[2]);
@@ -2142,7 +2215,8 @@ namespace EPPlusTest
 			pt.DataOnRows = true;
 
 			pt = wsPivot9.PivotTables.Add(wsPivot9.Cells["A3"], ws.Cells["K1:N11"], "Pivottable9");
-			pt.PageFields.Add(pt.Fields[1]);
+			// Commented out because this is not how page fields work.
+			//pt.PageFields.Add(pt.Fields[1]);
 			pt.RowFields.Add(pt.Fields[3]);
 			pt.RowFields[0].AddNumericGrouping(-3.3, 5.5, 4.0);
 			pt.DataFields.Add(pt.Fields[2]);
@@ -2199,7 +2273,7 @@ namespace EPPlusTest
 
 			var pivot4 = pck.Workbook.Worksheets[4].PivotTables[0];
 			var pivot5 = pck.Workbook.Worksheets[5].PivotTables[0];
-			pivot5.CacheDefinition.SourceRange = pck.Workbook.Worksheets[1].Cells["Q1:X300"];
+			pivot5.CacheDefinition.SetSourceRangeAddress(pck.Workbook.Worksheets[1], pck.Workbook.Worksheets[1].Cells["Q1:X300"]);
 
 			var pivot6 = pck.Workbook.Worksheets[6].PivotTables[0];
 
@@ -2458,7 +2532,7 @@ namespace EPPlusTest
 			{
 				for (int row = 1; row < 30; row++)
 				{
-					ws.SetValue(row, col, "cell " + ExcelAddressBase.GetAddress(row, col));
+					ws.SetValue(row, col, "cell " + ExcelAddress.GetAddress(row, col));
 				}
 			}
 			ws.Cells["A1:P30"].Copy(ws.Cells["B1"]);
@@ -3008,6 +3082,44 @@ namespace EPPlusTest
 				Assert.AreEqual("SUM(B2:C2)", sheet2.Cells["D2"].Formula);
 			}
 		}
+
+		[TestMethod]
+		public void CopySheetWithSparklineContainingNullFormula()
+		{
+			var tempWorkbook = new FileInfo(Path.GetTempFileName());
+			try
+			{
+				using (var package = new ExcelPackage())
+				{
+					var worksheet = package.Workbook.Worksheets.Add("Sheet");
+					var worksheetSparklineGroups = worksheet.SparklineGroups.SparklineGroups;
+
+					var sparklineGroup = new OfficeOpenXml.Drawing.Sparkline.ExcelSparklineGroup(worksheet, worksheet.NameSpaceManager);
+					// Use NULL for Formula
+					var sparkline = new OfficeOpenXml.Drawing.Sparkline.ExcelSparkline(new ExcelAddress("C3"), null, sparklineGroup, worksheet.NameSpaceManager);
+					sparklineGroup.Sparklines.Add(sparkline);
+					worksheet.SparklineGroups.SparklineGroups.Add(sparklineGroup);
+					package.SaveAs(tempWorkbook);
+				}
+				using (var package = new ExcelPackage(tempWorkbook))
+				{
+					var worksheet = package.Workbook.Worksheets["Sheet"];
+					var originalSparklineGroups = worksheet.SparklineGroups;
+					Assert.AreEqual(1, originalSparklineGroups.SparklineGroups.Count);
+					Assert.AreEqual(1, originalSparklineGroups.SparklineGroups[0].Sparklines.Count);
+					var copiedSheet = package.Workbook.Worksheets.Add("CopiedSheet", worksheet);
+					Assert.AreEqual(1, originalSparklineGroups.SparklineGroups.Count);
+					Assert.AreEqual(1, originalSparklineGroups.SparklineGroups[0].Sparklines.Count);
+					var copiedSparklineGroups = copiedSheet.SparklineGroups;
+					Assert.AreEqual(1, copiedSparklineGroups.SparklineGroups.Count);
+					Assert.AreEqual(1, copiedSparklineGroups.SparklineGroups[0].Sparklines.Count);
+				}
+			}
+			finally
+			{
+				tempWorkbook.Delete();
+			}
+		}
 		#endregion
 
 		#region InsertRows Tests
@@ -3087,6 +3199,27 @@ namespace EPPlusTest
 		}
 
 		[TestMethod]
+		public void InsertRowsUpdatesCommaSeparatedSeries()
+		{
+			using (ExcelPackage package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+				worksheet.Cells[2, 2].Value = "Cars";
+				worksheet.Cells[3, 2].Value = "Trucks";
+				worksheet.Cells[2, 3].Value = 10;
+				worksheet.Cells[3, 3].Value = 4;
+				worksheet.Cells[2, 4].Value = 1;
+				worksheet.Cells[3, 4].Value = 2;
+				var chart = worksheet.Drawings.AddChart("Chart1", eChartType.Bubble) as ExcelBubbleChart;
+				chart.Series.AddSeries("Sheet1!$C$2:$C$3,Sheet1!$E$4:$G$5", "Sheet1!$B$2:$B$3,Sheet1!$F$5:$H$6", "Sheet1!$D$2:$D$3,Sheet1!$H$7:$K$9");
+				worksheet.InsertRow(3, 3);
+				Assert.AreEqual("'Sheet1'!$B$2:$B$6,'Sheet1'!$F$8:$H$9", chart.Series[0].XSeries);
+				Assert.AreEqual("'Sheet1'!$C$2:$C$6,'Sheet1'!$E$7:$G$8", chart.Series[0].Series);
+				Assert.AreEqual("'Sheet1'!$D$2:$D$6,'Sheet1'!$H$10:$K$12", ((ExcelBubbleChartSerie)chart.Series[0]).BubbleSize);
+			}
+		}
+
+		[TestMethod]
 		[DeploymentItem(@"..\..\Workbooks\ComboFromExcel.xlsx")]
 		public void InsertRowsUpdatesComboChart()
 		{
@@ -3120,12 +3253,12 @@ namespace EPPlusTest
 				var range2 = package.Workbook.Names.Add("_xlchart.2", new ExcelRangeBase(worksheet2, "Sheet2!$A$1:$Z$26"));
 
 				worksheet1.InsertRow(10, 10);
-				ExcelRangeBase.SplitAddress(range0.Address, out string workbook, out string worksheet, out string address);
+				ExcelRangeBase.SplitAddress(range0.NameFormula, out string workbook, out string worksheet, out string address);
 				Assert.AreEqual("$A$1:$Z$36", address);
-				ExcelRangeBase.SplitAddress(range1.Address, out workbook, out worksheet, out address);
+				ExcelRangeBase.SplitAddress(range1.NameFormula, out workbook, out worksheet, out address);
 				Assert.AreEqual("$A$1:$Z$36", address);
 				address = null;
-				ExcelRangeBase.SplitAddress(range2.Address, out workbook, out worksheet, out address);
+				ExcelRangeBase.SplitAddress(range2.NameFormula, out workbook, out worksheet, out address);
 				Assert.AreEqual("$A$1:$Z$26", address);
 			}
 		}
@@ -3198,9 +3331,12 @@ namespace EPPlusTest
 			{
 				//make a Data Validation range
 				var sheet = package.Workbook.Worksheets.Add("Sheet");
+				var sheet2 = package.Workbook.Worksheets.Add("Sheet2");
 				var validation = sheet.Cells["D5"].DataValidation.AddListDataValidation();
 				validation.Formula.ExcelFormula = "=Sheet!$B$2:$B$3";
 				validation = sheet.Cells["D6"].DataValidation.AddListDataValidation();
+				validation.Formula.ExcelFormula = "=$B$2:$B$3";
+				validation = sheet2.Cells["B2"].DataValidation.AddListDataValidation();
 				validation.Formula.ExcelFormula = "=$B$2:$B$3";
 
 				//expand the range
@@ -3208,11 +3344,64 @@ namespace EPPlusTest
 
 				//validate that the Data Validation range has also expanded
 				var validationRange = sheet.DataValidations.First() as OfficeOpenXml.DataValidation.Contracts.IExcelDataValidationList;
-				Assert.AreEqual("='SHEET'!$B$2:$B$5", validationRange.Formula.ExcelFormula);
+				Assert.AreEqual("='Sheet'!$B$2:$B$5", validationRange.Formula.ExcelFormula);
 
 				//validate that the implicitly addressed Data Validation range has also expanded
 				validationRange = sheet.DataValidations.Last() as OfficeOpenXml.DataValidation.Contracts.IExcelDataValidationList;
 				Assert.AreEqual("=$B$2:$B$5", validationRange.Formula.ExcelFormula);
+			}
+		}
+
+		[TestMethod]
+		public void InsertRowUpdatesDataValidationAddressesAndFormulas()
+		{
+			using (var package = new ExcelPackage())
+			{
+				var sheet = package.Workbook.Worksheets.Add("Sheet");
+				var anyValidation = sheet.Cells["E5:E10"].DataValidation.AddAnyDataValidation();
+				var customValidation = sheet.Cells["F1:F6"].DataValidation.AddCustomDataValidation();
+				customValidation.Formula.ExcelFormula = "=Sheet!$B$2:$B$5";
+				var listValidation = sheet.Cells["G1:G10"].DataValidation.AddListDataValidation();
+				listValidation.Formula.ExcelFormula = "A1:A8";
+				var timeValidation = sheet.Cells["J1:K10"].DataValidation.AddTimeDataValidation();
+				timeValidation.Formula.ExcelFormula = "A10:H100";
+				timeValidation.Formula2.ExcelFormula = "I1:I99";
+				var dateTimeValidation = sheet.Cells["L1:L10"].DataValidation.AddDateTimeDataValidation();
+				dateTimeValidation.Formula.ExcelFormula = "A10:H100";
+				dateTimeValidation.Formula2.ExcelFormula = "I1:I99";
+				var integerValidation = sheet.Cells["D5:D8"].DataValidation.AddIntegerDataValidation();
+				integerValidation.Formula.ExcelFormula = "=Sheet!$B$2:$B$4";
+				integerValidation.Formula2.ExcelFormula = "=Sheet!$B$1:$B$5";
+				var decimalValidation = sheet.Cells["Z1:AA100"].DataValidation.AddDecimalDataValidation();
+				decimalValidation.Formula.ExcelFormula = "=Sheet!$B$2:$B$4";
+				decimalValidation.Formula2.ExcelFormula = "=Sheet!$B$1:$B$5";
+
+				sheet.InsertRow(3, 2);
+
+				var updatedAnyValidation = sheet.DataValidations.Single(v => v.ValidationType.Type == eDataValidationType.Any) as ExcelDataValidationAny;
+				Assert.AreEqual("E7:E12", updatedAnyValidation.Address.Address);
+				var updatedCustomValidation = sheet.DataValidations.Single(v => v.ValidationType.Type == eDataValidationType.Custom) as ExcelDataValidationCustom;
+				Assert.AreEqual("F1:F8", updatedCustomValidation.Address.Address);
+				Assert.AreEqual("='Sheet'!$B$2:$B$7", updatedCustomValidation.Formula.ExcelFormula);
+				var updatedListValidation = sheet.DataValidations.Single(v => v.ValidationType.Type == eDataValidationType.List) as ExcelDataValidationList;
+				Assert.AreEqual("G1:G12", updatedListValidation.Address.Address);
+				Assert.AreEqual("A1:A10", updatedListValidation.Formula.ExcelFormula);
+				var updatedTimeValidation = sheet.DataValidations.Single(v => v.ValidationType.Type == eDataValidationType.Time) as ExcelDataValidationTime;
+				Assert.AreEqual("J1:K12", updatedTimeValidation.Address.Address);
+				Assert.AreEqual("A12:H102", updatedTimeValidation.Formula.ExcelFormula);
+				Assert.AreEqual("I1:I101", updatedTimeValidation.Formula2.ExcelFormula);
+				var updatedDateTimeValidation = sheet.DataValidations.Single(v => v.ValidationType.Type == eDataValidationType.DateTime) as ExcelDataValidationDateTime;
+				Assert.AreEqual("L1:L12", updatedDateTimeValidation.Address.Address);
+				Assert.AreEqual("A12:H102", updatedDateTimeValidation.Formula.ExcelFormula);
+				Assert.AreEqual("I1:I101", updatedDateTimeValidation.Formula2.ExcelFormula);
+				var updatedIntegerValidation = sheet.DataValidations.Single(v => v.ValidationType.Type == eDataValidationType.Whole) as ExcelDataValidationInt;
+				Assert.AreEqual("D7:D10", updatedIntegerValidation.Address.Address);
+				Assert.AreEqual("='Sheet'!$B$2:$B$6", updatedIntegerValidation.Formula.ExcelFormula);
+				Assert.AreEqual("='Sheet'!$B$1:$B$7", updatedIntegerValidation.Formula2.ExcelFormula);
+				var updatedDecimalValidation = sheet.DataValidations.Single(v => v.ValidationType.Type == eDataValidationType.Decimal) as ExcelDataValidationDecimal;
+				Assert.AreEqual("Z1:AA102", updatedDecimalValidation.Address.Address);
+				Assert.AreEqual("='Sheet'!$B$2:$B$6", updatedDecimalValidation.Formula.ExcelFormula);
+				Assert.AreEqual("='Sheet'!$B$1:$B$7", updatedDecimalValidation.Formula2.ExcelFormula);
 			}
 		}
 
@@ -3233,7 +3422,7 @@ namespace EPPlusTest
 
 				//validate that the Data Validation range has also expanded
 				var validationRange = sheet.DataValidations.First() as OfficeOpenXml.DataValidation.Contracts.IExcelDataValidationList;
-				Assert.AreEqual("='SHEET'!$B$2:$E$2", validationRange.Formula.ExcelFormula);
+				Assert.AreEqual("='Sheet'!$B$2:$E$2", validationRange.Formula.ExcelFormula);
 
 				//validate implicitly addressed Data Validation range has also expanded
 				validationRange = sheet.DataValidations.Last() as OfficeOpenXml.DataValidation.Contracts.IExcelDataValidationList;
@@ -3301,17 +3490,17 @@ namespace EPPlusTest
 				var pivotTable = sheet1.PivotTables.Add(sheet1.Cells["C3:D4"], sheet2.Cells["E5:E7"], "PivotTable");
 				Assert.AreEqual("'sheet1'!C3:D4", pivotTable.Address.FullAddress);
 				Assert.AreEqual(eSourceType.Worksheet, pivotTable.CacheDefinition.CacheSource);
-				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 
 				sheet1.InsertRow(1, 1);
 
 				Assert.AreEqual("'sheet1'!C4:D5", pivotTable.Address.FullAddress);
-				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 
 				sheet2.InsertRow(1, 1);
 
 				Assert.AreEqual("'sheet1'!C4:D5", pivotTable.Address.FullAddress);
-				Assert.AreEqual("'sheet2'!E6:E8", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E6:E8", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 			}
 		}
 
@@ -3325,33 +3514,111 @@ namespace EPPlusTest
 			{
 				var worksheet = package.Workbook.Worksheets.First();
 				var pivotTable = worksheet.PivotTables.First();
-				Assert.AreEqual("I10:K27", pivotTable.Address.Address);
+				Assert.AreEqual("I10:J16", pivotTable.Address.Address);
 				Assert.AreEqual(eSourceType.Worksheet, pivotTable.CacheDefinition.CacheSource);
-				Assert.AreEqual("C3:C5", pivotTable.CacheDefinition.SourceRange.Address);
+				Assert.AreEqual("C3:F6", pivotTable.CacheDefinition.GetSourceRangeAddress().Address);
 
 				worksheet.InsertRow(1, 1);
 
-				Assert.AreEqual("I11:K28", pivotTable.Address.Address);
-				Assert.AreEqual("C4:C6", pivotTable.CacheDefinition.SourceRange.Address);
+				Assert.AreEqual("I11:J17", pivotTable.Address.Address);
+				Assert.AreEqual("C4:F7", pivotTable.CacheDefinition.GetSourceRangeAddress().Address);
 			}
 		}
 
 		[TestMethod]
-		[DeploymentItem(@"..\..\Workbooks\PivotTableDataSourceTypeExternal.xlsx")]
-		public void InsertRowUpdatesPivotTableSourceRangeHandlesExternalDataSources()
+		[DeploymentItem(@"..\..\Workbooks\PivotTableDataSourceTypeWorksheet.xlsx")]
+		public void InsertRowBetweenUpdatesPivotTableSourceRangeHandlesWorksheetDataSources()
 		{
-			var file = new FileInfo("PivotTableDataSourceTypeExternal.xlsx");
+			var file = new FileInfo("PivotTableDataSourceTypeWorksheet.xlsx");
 			Assert.IsTrue(file.Exists);
 			using (var package = new ExcelPackage(file))
 			{
 				var worksheet = package.Workbook.Worksheets.First();
 				var pivotTable = worksheet.PivotTables.First();
-				Assert.AreEqual("G6:I23", pivotTable.Address.Address);
+				Assert.AreEqual("I10:J16", pivotTable.Address.Address);
+				Assert.AreEqual(eSourceType.Worksheet, pivotTable.CacheDefinition.CacheSource);
+				Assert.AreEqual("C3:F6", pivotTable.CacheDefinition.GetSourceRangeAddress().Address);
+
+				worksheet.InsertRow(8, 1);
+
+				Assert.AreEqual("I11:J17", pivotTable.Address.Address);
+				Assert.AreEqual("C3:F6", pivotTable.CacheDefinition.GetSourceRangeAddress().Address);
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\PivotTableWithExternalSource.xlsx")]
+		public void InsertRowUpdatesPivotTableSourceRangeHandlesExternalDataSources()
+		{
+			var file = new FileInfo("PivotTableWithExternalSource.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				var pivotTable = worksheet.PivotTables.First();
+				Assert.AreEqual("I2:L5", pivotTable.Address.Address);
 				Assert.AreEqual(eSourceType.External, pivotTable.CacheDefinition.CacheSource);
 
 				worksheet.InsertRow(1, 1);
 
-				Assert.AreEqual("G7:I24", pivotTable.Address.Address);
+				Assert.AreEqual("I3:L6", pivotTable.Address.Address);
+			}
+		}
+
+		[TestMethod]
+		public void InsertRowWithSparklineContainingNullFormula()
+		{
+			var tempWorkbook = new FileInfo(Path.GetTempFileName());
+			try
+			{
+				using (var package = new ExcelPackage())
+				{
+					var worksheet = package.Workbook.Worksheets.Add("Sheet");
+					var worksheetSparklineGroups = worksheet.SparklineGroups.SparklineGroups;
+
+					var sparklineGroup = new OfficeOpenXml.Drawing.Sparkline.ExcelSparklineGroup(worksheet, worksheet.NameSpaceManager);
+					// Use NULL for Formula
+					var sparkline = new OfficeOpenXml.Drawing.Sparkline.ExcelSparkline(new ExcelAddress("C3"), null, sparklineGroup, worksheet.NameSpaceManager);
+					sparklineGroup.Sparklines.Add(sparkline);
+					worksheet.SparklineGroups.SparklineGroups.Add(sparklineGroup);
+					package.SaveAs(tempWorkbook);
+				}
+				using (var package = new ExcelPackage(tempWorkbook))
+				{
+					var worksheet = package.Workbook.Worksheets["Sheet"];
+					var sparklineGroups = worksheet.SparklineGroups;
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups.Count);
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups[0].Sparklines.Count);
+					Assert.AreEqual("C3", sparklineGroups.SparklineGroups[0].Sparklines[0].HostCell.Address);
+					worksheet.InsertRow(1, 1);
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups.Count);
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups[0].Sparklines.Count);
+					Assert.AreEqual("C4", sparklineGroups.SparklineGroups[0].Sparklines[0].HostCell.Address);
+				}
+			}
+			finally
+			{
+				tempWorkbook.Delete();
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\PivotTableColumnFields.xlsx")]
+		public void InsertRowUpdatePivotTableSourceRange()
+		{
+			var file = new FileInfo("PivotTableColumnFields.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				worksheet.InsertRow(1, 1);
+				var pivotTable = worksheet.PivotTables.First();
+				var cacheDefinition = package.Workbook.PivotCacheDefinitions.Single();
+				Assert.AreEqual("A2:G9", cacheDefinition.GetSourceRangeAddress().ToString());
+
+				worksheet = package.Workbook.Worksheets["RowItems"];
+				worksheet.InsertColumn(1, 1);
+				Assert.AreEqual("A2:G9", cacheDefinition.GetSourceRangeAddress().ToString());
 			}
 		}
 
@@ -3395,12 +3662,12 @@ namespace EPPlusTest
 				var range2 = package.Workbook.Names.Add("_xlchart.2", new ExcelRangeBase(worksheet2, "Sheet2!$A$1:$Z$26"));
 
 				worksheet2.InsertColumn(10, 10);
-				ExcelRangeBase.SplitAddress(range0.Address, out string workbook, out string worksheet, out string address);
+				ExcelRangeBase.SplitAddress(range0.NameFormula, out string workbook, out string worksheet, out string address);
 				Assert.AreEqual("$A$1:$Z$26", address);
-				ExcelRangeBase.SplitAddress(range1.Address, out workbook, out worksheet, out address);
+				ExcelRangeBase.SplitAddress(range1.NameFormula, out workbook, out worksheet, out address);
 				Assert.AreEqual("$A$1:$AJ$26", address);
 				address = null;
-				ExcelRangeBase.SplitAddress(range2.Address, out workbook, out worksheet, out address);
+				ExcelRangeBase.SplitAddress(range2.NameFormula, out workbook, out worksheet, out address);
 				Assert.AreEqual("$A$1:$AJ$26", address);
 			}
 		}
@@ -3490,17 +3757,17 @@ namespace EPPlusTest
 				var pivotTable = sheet1.PivotTables.Add(sheet1.Cells["C3:D4"], sheet2.Cells["E5:E7"], "PivotTable");
 				Assert.AreEqual("'sheet1'!C3:D4", pivotTable.Address.FullAddress);
 				Assert.AreEqual(eSourceType.Worksheet, pivotTable.CacheDefinition.CacheSource);
-				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 
 				sheet1.InsertColumn(1, 1);
 
 				Assert.AreEqual("'sheet1'!D3:E4", pivotTable.Address.FullAddress);
-				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 
 				sheet2.InsertColumn(1, 1);
 
 				Assert.AreEqual("'sheet1'!D3:E4", pivotTable.Address.FullAddress);
-				Assert.AreEqual("'sheet2'!F5:F7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!F5:F7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 			}
 		}
 
@@ -3514,33 +3781,70 @@ namespace EPPlusTest
 			{
 				var worksheet = package.Workbook.Worksheets.First();
 				var pivotTable = worksheet.PivotTables.First();
-				Assert.AreEqual("I10:K27", pivotTable.Address.Address);
+				Assert.AreEqual("I10:J16", pivotTable.Address.Address);
 				Assert.AreEqual(eSourceType.Worksheet, pivotTable.CacheDefinition.CacheSource);
-				Assert.AreEqual("C3:C5", pivotTable.CacheDefinition.SourceRange.Address);
+				Assert.AreEqual("C3:F6", pivotTable.CacheDefinition.GetSourceRangeAddress().Address);
 
 				worksheet.InsertColumn(1, 1);
 
-				Assert.AreEqual("J10:L27", pivotTable.Address.Address);
-				Assert.AreEqual("D3:D5", pivotTable.CacheDefinition.SourceRange.Address);
+				Assert.AreEqual("J10:K16", pivotTable.Address.Address);
+				Assert.AreEqual("D3:G6", pivotTable.CacheDefinition.GetSourceRangeAddress().Address);
 			}
 		}
 
 		[TestMethod]
-		[DeploymentItem(@"..\..\Workbooks\PivotTableDataSourceTypeExternal.xlsx")]
+		[DeploymentItem(@"..\..\Workbooks\PivotTableWithExternalSource.xlsx")]
 		public void InsertColumnUpdatesPivotTableSourceRangeHandlesExternalDataSources()
 		{
-			var file = new FileInfo("PivotTableDataSourceTypeExternal.xlsx");
+			var file = new FileInfo("PivotTableWithExternalSource.xlsx");
 			Assert.IsTrue(file.Exists);
 			using (var package = new ExcelPackage(file))
 			{
 				var worksheet = package.Workbook.Worksheets.First();
 				var pivotTable = worksheet.PivotTables.First();
-				Assert.AreEqual("G6:I23", pivotTable.Address.Address);
+				Assert.AreEqual("I2:L5", pivotTable.Address.Address);
 				Assert.AreEqual(eSourceType.External, pivotTable.CacheDefinition.CacheSource);
 
 				worksheet.InsertColumn(1, 1);
 
-				Assert.AreEqual("H6:J23", pivotTable.Address.Address);
+				Assert.AreEqual("J2:M5", pivotTable.Address.Address);
+			}
+		}
+
+		[TestMethod]
+		public void InsertColumnWithSparklineContainingNullFormula()
+		{
+			var tempWorkbook = new FileInfo(Path.GetTempFileName());
+			try
+			{
+				using (var package = new ExcelPackage())
+				{
+					var worksheet = package.Workbook.Worksheets.Add("Sheet");
+					var worksheetSparklineGroups = worksheet.SparklineGroups.SparklineGroups;
+
+					var sparklineGroup = new OfficeOpenXml.Drawing.Sparkline.ExcelSparklineGroup(worksheet, worksheet.NameSpaceManager);
+					// Use NULL for Formula
+					var sparkline = new OfficeOpenXml.Drawing.Sparkline.ExcelSparkline(new ExcelAddress("C3"), null, sparklineGroup, worksheet.NameSpaceManager);
+					sparklineGroup.Sparklines.Add(sparkline);
+					worksheet.SparklineGroups.SparklineGroups.Add(sparklineGroup);
+					package.SaveAs(tempWorkbook);
+				}
+				using (var package = new ExcelPackage(tempWorkbook))
+				{
+					var worksheet = package.Workbook.Worksheets["Sheet"];
+					var sparklineGroups = worksheet.SparklineGroups;
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups.Count);
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups[0].Sparklines.Count);
+					Assert.AreEqual("C3", sparklineGroups.SparklineGroups[0].Sparklines[0].HostCell.Address);
+					worksheet.InsertColumn(1, 1);
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups.Count);
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups[0].Sparklines.Count);
+					Assert.AreEqual("D3", sparklineGroups.SparklineGroups[0].Sparklines[0].HostCell.Address);
+				}
+			}
+			finally
+			{
+				tempWorkbook.Delete();
 			}
 		}
 
@@ -3723,12 +4027,12 @@ namespace EPPlusTest
 				var range2 = package.Workbook.Names.Add("_xlchart.2", new ExcelRangeBase(worksheet2, "Sheet2!$A$1:$Z$26"));
 
 				worksheet1.DeleteRow(10, 10);
-				ExcelRangeBase.SplitAddress(range0.Address, out string workbook, out string worksheet, out string address);
+				ExcelRangeBase.SplitAddress(range0.NameFormula, out string workbook, out string worksheet, out string address);
 				Assert.AreEqual("$A$1:$Z$16", address);
-				ExcelRangeBase.SplitAddress(range1.Address, out workbook, out worksheet, out address);
+				ExcelRangeBase.SplitAddress(range1.NameFormula, out workbook, out worksheet, out address);
 				Assert.AreEqual("$A$1:$Z$16", address);
 				address = null;
-				ExcelRangeBase.SplitAddress(range2.Address, out workbook, out worksheet, out address);
+				ExcelRangeBase.SplitAddress(range2.NameFormula, out workbook, out worksheet, out address);
 				Assert.AreEqual("$A$1:$Z$26", address);
 			}
 		}
@@ -3802,7 +4106,7 @@ namespace EPPlusTest
 				sheet.DeleteRow(3, 2);
 
 				var validationRange = sheet.DataValidations.First() as OfficeOpenXml.DataValidation.Contracts.IExcelDataValidationList;
-				Assert.AreEqual("='SHEET'!$B$2:$B$4", validationRange.Formula.ExcelFormula);
+				Assert.AreEqual("='Sheet'!$B$2:$B$4", validationRange.Formula.ExcelFormula);
 
 				validationRange = sheet.DataValidations.Last() as OfficeOpenXml.DataValidation.Contracts.IExcelDataValidationList;
 				Assert.AreEqual("=$B$2:$B$4", validationRange.Formula.ExcelFormula);
@@ -3863,7 +4167,7 @@ namespace EPPlusTest
 
 				sheet2.DeleteRow(4, 1);
 
-				Assert.AreEqual("SUM('SHEET2'!C3:C4)", sheet1.Cells["C3"].Formula);
+				Assert.AreEqual("SUM('sheet2'!C3:C4)", sheet1.Cells["C3"].Formula);
 			}
 		}
 
@@ -3877,17 +4181,17 @@ namespace EPPlusTest
 				var pivotTable = sheet1.PivotTables.Add(sheet1.Cells["C3:D4"], sheet2.Cells["E5:E7"], "PivotTable");
 				Assert.AreEqual("'sheet1'!C3:D4", pivotTable.Address.FullAddress);
 				Assert.AreEqual(eSourceType.Worksheet, pivotTable.CacheDefinition.CacheSource);
-				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 
 				sheet1.DeleteRow(1, 1);
 
 				Assert.AreEqual("'sheet1'!C2:D3", pivotTable.Address.FullAddress);
-				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 
 				sheet2.DeleteRow(1, 1);
 
 				Assert.AreEqual("'sheet1'!C2:D3", pivotTable.Address.FullAddress);
-				Assert.AreEqual("'sheet2'!E4:E6", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E4:E6", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 			}
 		}
 
@@ -3904,28 +4208,90 @@ namespace EPPlusTest
 			{
 				using (var package = new ExcelPackage(copy))
 				{
-					var sheet = package.Workbook.Worksheets.First();
-					var sparklines = sheet.SparklineGroups.SparklineGroups;
+					var sheet1 = package.Workbook.Worksheets["Sheet1"];
+					var sparklines = sheet1.SparklineGroups.SparklineGroups;
+					Assert.AreEqual(7, sparklines.Count);
+					sheet1.DeleteRow(7);
 					Assert.AreEqual(6, sparklines.Count);
-					sheet.DeleteRow(7);
-					Assert.AreEqual(5, sparklines.Count);
+					Assert.AreEqual("Sheet2!B2:I2", sparklines[5].Sparklines[0].Formula.Address);
+					Assert.AreEqual("C11", sparklines[5].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!D6:F6", sparklines[4].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G6", sparklines[4].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!D7:F7", sparklines[3].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G7", sparklines[3].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!D6:D7", sparklines[2].Sparklines[0].Formula.Address);
+					Assert.AreEqual("D8", sparklines[2].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!E6:E7", sparklines[1].Sparklines[0].Formula.Address);
+					Assert.AreEqual("E8", sparklines[1].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!F6:F7", sparklines[0].Sparklines[0].Formula.Address);
+					Assert.AreEqual("F8", sparklines[0].Sparklines[0].HostCell.Address);
 					package.Save();
 				}
 				using (var package = new ExcelPackage(copy))
 				{
-					var sheet = package.Workbook.Worksheets.First();
-					var sparklines = sheet.SparklineGroups.SparklineGroups;
-					Assert.AreEqual(5, sparklines.Count);
+					var sheet1 = package.Workbook.Worksheets["Sheet1"];
+					var sparklines = sheet1.SparklineGroups.SparklineGroups;
+					Assert.AreEqual(6, sparklines.Count);
+					Assert.AreEqual("Sheet2!B2:I2", sparklines[5].Sparklines[0].Formula.Address);
+					Assert.AreEqual("C11", sparklines[5].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!D6:F6", sparklines[4].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G6", sparklines[4].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!D7:F7", sparklines[3].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G7", sparklines[3].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!D6:D7", sparklines[2].Sparklines[0].Formula.Address);
+					Assert.AreEqual("D8", sparklines[2].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!E6:E7", sparklines[1].Sparklines[0].Formula.Address);
+					Assert.AreEqual("E8", sparklines[1].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!F6:F7", sparklines[0].Sparklines[0].Formula.Address);
+					Assert.AreEqual("F8", sparklines[0].Sparklines[0].HostCell.Address);
+				}
+			}
+			finally
+			{
+				copy.Delete();
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\Sparkline Demos.xlsx")]
+		public void DeleteRowUpdatesCrossSheetSparklineFormulas()
+		{
+			var file = new FileInfo("Sparkline Demos.xlsx");
+			Assert.IsTrue(file.Exists);
+			var temp = Path.GetTempFileName();
+			File.Delete(temp);
+			var copy = file.CopyTo(temp);
+			try
+			{
+				using (var package = new ExcelPackage(copy))
+				{
+					var sheet1 = package.Workbook.Worksheets["Sheet1"];
+					var sheet2 = package.Workbook.Worksheets["Sheet2"];
+					var sparklines = sheet1.SparklineGroups.SparklineGroups;
+					Assert.AreEqual(7, sparklines.Count);
+					sheet2.DeleteRow(1);
+					Assert.AreEqual(7, sparklines.Count);
+					Assert.AreEqual("'Sheet2'!B1:I1", sparklines[6].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!D6:F6", sparklines[5].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!D7:F7", sparklines[4].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!D8:F8", sparklines[3].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!D6:D8", sparklines[2].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!E6:E8", sparklines[1].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!F6:F8", sparklines[0].Sparklines[0].Formula.Address);
+					package.Save();
+				}
+				using (var package = new ExcelPackage(copy))
+				{
+					var sheet1 = package.Workbook.Worksheets["Sheet1"];
+					var sparklines = sheet1.SparklineGroups.SparklineGroups;
+					Assert.AreEqual(7, sparklines.Count);
+					Assert.AreEqual("'Sheet2'!B1:I1", sparklines[6].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!D6:F6", sparklines[5].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!D7:F7", sparklines[4].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!D8:F8", sparklines[3].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!D6:D8", sparklines[2].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!E6:E8", sparklines[1].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!F6:F8", sparklines[0].Sparklines[0].Formula.Address);
 				}
 			}
 			finally
@@ -3944,33 +4310,54 @@ namespace EPPlusTest
 			{
 				var worksheet = package.Workbook.Worksheets.First();
 				var pivotTable = worksheet.PivotTables.First();
-				Assert.AreEqual("I10:K27", pivotTable.Address.Address);
+				Assert.AreEqual("I10:J16", pivotTable.Address.Address);
 				Assert.AreEqual(eSourceType.Worksheet, pivotTable.CacheDefinition.CacheSource);
-				Assert.AreEqual("C3:C5", pivotTable.CacheDefinition.SourceRange.Address);
+				Assert.AreEqual("C3:F6", pivotTable.CacheDefinition.GetSourceRangeAddress().Address);
 
 				worksheet.DeleteRow(1, 1);
 
-				Assert.AreEqual("I9:K26", pivotTable.Address.Address);
-				Assert.AreEqual("C2:C4", pivotTable.CacheDefinition.SourceRange.Address);
+				Assert.AreEqual("I9:J15", pivotTable.Address.Address);
+				Assert.AreEqual("C2:F5", pivotTable.CacheDefinition.GetSourceRangeAddress().Address);
 			}
 		}
 
 		[TestMethod]
-		[DeploymentItem(@"..\..\Workbooks\PivotTableDataSourceTypeExternal.xlsx")]
-		public void DeleteRowUpdatesPivotTableSourceRangeHandlesExternalDataSources()
+		[DeploymentItem(@"..\..\Workbooks\PivotTableDataSourceTypeWorksheet.xlsx")]
+		public void DeleteRowBetweenUpdatesPivotTableSourceRangeHandlesWorksheetDataSources()
 		{
-			var file = new FileInfo("PivotTableDataSourceTypeExternal.xlsx");
+			var file = new FileInfo("PivotTableDataSourceTypeWorksheet.xlsx");
 			Assert.IsTrue(file.Exists);
 			using (var package = new ExcelPackage(file))
 			{
 				var worksheet = package.Workbook.Worksheets.First();
 				var pivotTable = worksheet.PivotTables.First();
-				Assert.AreEqual("G6:I23", pivotTable.Address.Address);
+				Assert.AreEqual("I10:J16", pivotTable.Address.Address);
+				Assert.AreEqual(eSourceType.Worksheet, pivotTable.CacheDefinition.CacheSource);
+				Assert.AreEqual("C3:F6", pivotTable.CacheDefinition.GetSourceRangeAddress().Address);
+
+				worksheet.DeleteRow(8, 1);
+
+				Assert.AreEqual("I9:J15", pivotTable.Address.Address);
+				Assert.AreEqual("C3:F6", pivotTable.CacheDefinition.GetSourceRangeAddress().Address);
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\PivotTableWithExternalSource.xlsx")]
+		public void DeleteRowUpdatesPivotTableSourceRangeHandlesExternalDataSources()
+		{
+			var file = new FileInfo("PivotTableWithExternalSource.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				var pivotTable = worksheet.PivotTables.First();
+				Assert.AreEqual("I2:L5", pivotTable.Address.Address);
 				Assert.AreEqual(eSourceType.External, pivotTable.CacheDefinition.CacheSource);
 
 				worksheet.DeleteRow(1, 1);
 
-				Assert.AreEqual("G5:I22", pivotTable.Address.Address);
+				Assert.AreEqual("I1:L4", pivotTable.Address.Address);
 			}
 		}
 		#endregion
@@ -4220,12 +4607,12 @@ namespace EPPlusTest
 				var range2 = package.Workbook.Names.Add("_xlchart.2", new ExcelRangeBase(worksheet2, "Sheet2!$A$4:$Z$26"));
 
 				worksheet1.DeleteRow(1, 10);
-				ExcelRangeBase.SplitAddress(range0.Address, out string workbook, out string worksheet, out string address);
+				ExcelRangeBase.SplitAddress(range0.NameFormula, out string workbook, out string worksheet, out string address);
 				Assert.AreEqual("$A$1:$Z$16", address);
-				ExcelRangeBase.SplitAddress(range1.Address, out workbook, out worksheet, out address);
+				ExcelRangeBase.SplitAddress(range1.NameFormula, out workbook, out worksheet, out address);
 				Assert.AreEqual("$A$1:$Z$16", address);
 				address = null;
-				ExcelRangeBase.SplitAddress(range2.Address, out workbook, out worksheet, out address);
+				ExcelRangeBase.SplitAddress(range2.NameFormula, out workbook, out worksheet, out address);
 				Assert.AreEqual("$A$4:$Z$26", address);
 			}
 		}
@@ -4244,7 +4631,7 @@ namespace EPPlusTest
 				sheet.DeleteRow(1, 4);
 
 				var validationRange = sheet.DataValidations.First() as OfficeOpenXml.DataValidation.Contracts.IExcelDataValidationList;
-				Assert.AreEqual("='SHEET'!$B$1:$B$2", validationRange.Formula.ExcelFormula);
+				Assert.AreEqual("='Sheet'!$B$1:$B$2", validationRange.Formula.ExcelFormula);
 
 				validationRange = sheet.DataValidations.Last() as OfficeOpenXml.DataValidation.Contracts.IExcelDataValidationList;
 				Assert.AreEqual("=$B$1:$B$2", validationRange.Formula.ExcelFormula);
@@ -4281,7 +4668,7 @@ namespace EPPlusTest
 
 				sheet2.DeleteRow(1, 4);
 
-				Assert.AreEqual("SUM('SHEET2'!C1)", sheet1.Cells["C3"].Formula);
+				Assert.AreEqual("SUM('sheet2'!C1)", sheet1.Cells["C3"].Formula);
 			}
 		}
 
@@ -4295,17 +4682,17 @@ namespace EPPlusTest
 				var pivotTable = sheet1.PivotTables.Add(sheet1.Cells["C3:D4"], sheet2.Cells["E5:E7"], "PivotTable");
 				Assert.AreEqual("'sheet1'!C3:D4", pivotTable.Address.FullAddress);
 				Assert.AreEqual(eSourceType.Worksheet, pivotTable.CacheDefinition.CacheSource);
-				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 
 				sheet1.DeleteRow(1, 1);
 
 				Assert.AreEqual("'sheet1'!C2:D3", pivotTable.Address.FullAddress);
-				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 
 				sheet2.DeleteRow(1, 5);
 
 				Assert.AreEqual("'sheet1'!C2:D3", pivotTable.Address.FullAddress);
-				Assert.AreEqual("'sheet2'!E1:E2", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E1:E2", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 			}
 		}
 		#endregion
@@ -4370,10 +4757,9 @@ namespace EPPlusTest
 				var range2 = package.Workbook.Names.Add("_xlchart.2", new ExcelRangeBase(worksheet2, "Sheet2!$A$4:$Z$26"));
 
 				worksheet1.DeleteRow(1, 26);
-				Assert.AreEqual("#REF!", range0.Address);
-				Assert.AreEqual("#REF!", range1.Address);
-				ExcelRangeBase.SplitAddress(range2.Address, out string workbook, out string worksheet, out string address);
-				Assert.AreEqual("$A$4:$Z$26", address);
+				Assert.AreEqual("'Sheet1'!#REF!", range0.NameFormula);
+				Assert.AreEqual("'Sheet1'!#REF!", range1.NameFormula);
+				Assert.AreEqual("Sheet2!$A$4:$Z$26", range2.NameFormula);
 			}
 		}
 
@@ -4391,7 +4777,7 @@ namespace EPPlusTest
 				sheet.DeleteRow(1, 6);
 
 				var validationRange = sheet.DataValidations.First() as OfficeOpenXml.DataValidation.Contracts.IExcelDataValidationList;
-				Assert.AreEqual("='SHEET'!#REF!", validationRange.Formula.ExcelFormula);
+				Assert.AreEqual("='Sheet'!#REF!", validationRange.Formula.ExcelFormula);
 
 				validationRange = sheet.DataValidations.Last() as OfficeOpenXml.DataValidation.Contracts.IExcelDataValidationList;
 				Assert.AreEqual("=#REF!", validationRange.Formula.ExcelFormula);
@@ -4425,17 +4811,287 @@ namespace EPPlusTest
 				var pivotTable = sheet1.PivotTables.Add(sheet1.Cells["C3:D4"], sheet2.Cells["E5:E7"], "PivotTable");
 				Assert.AreEqual("'sheet1'!C3:D4", pivotTable.Address.FullAddress);
 				Assert.AreEqual(eSourceType.Worksheet, pivotTable.CacheDefinition.CacheSource);
-				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 
 				sheet1.DeleteRow(1, 1);
 
 				Assert.AreEqual("'sheet1'!C2:D3", pivotTable.Address.FullAddress);
-				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 
 				sheet2.DeleteRow(1, 10);
 
 				Assert.AreEqual("'sheet1'!C2:D3", pivotTable.Address.FullAddress);
-				Assert.AreEqual("'sheet2'!#REF!", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!#REF!", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
+			}
+		}
+		#endregion
+
+		#region ConditionalFormatting
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\AllConditionalFormatting.xlsx")]
+		public void DeleteRowsWithConditionalFormattingContainedShouldDeleteConditionalFormattingSingleRow()
+		{
+			var file = new FileInfo(@"AllConditionalFormatting.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				Assert.AreEqual(21, worksheet.ConditionalFormatting.Count);
+				Assert.AreEqual(2, worksheet.ConditionalFormatting.Count(f => f.Type == eExcelConditionalFormattingRuleType.Expression));
+				worksheet.DeleteRow(87, 1);
+				Assert.AreEqual(20, worksheet.ConditionalFormatting.Count);
+				Assert.AreEqual(1, worksheet.ConditionalFormatting.Count(f => f.Type == eExcelConditionalFormattingRuleType.Expression));
+				var nextRowRule = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.Expression);
+				Assert.AreEqual("C87", nextRowRule.Address.ToString());
+				var previousRowValue = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.DuplicateValues);
+				Assert.AreEqual("C71:C83", previousRowValue.Address.ToString());
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\AllConditionalFormatting.xlsx")]
+		public void DeleteRowsWithConditionalFormattingContainedShouldDeleteConditionalFormattingSingleRowMultiples()
+		{
+			var file = new FileInfo(@"AllConditionalFormatting.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				Assert.AreEqual(21, worksheet.ConditionalFormatting.Count);
+				Assert.AreEqual(2, worksheet.ConditionalFormatting.Count(f => f.Type == eExcelConditionalFormattingRuleType.Expression));
+				worksheet.DeleteRow(87, 2);
+				Assert.AreEqual(19, worksheet.ConditionalFormatting.Count);
+				Assert.AreEqual(0, worksheet.ConditionalFormatting.Count(f => f.Type == eExcelConditionalFormattingRuleType.Expression));
+				var previousRowValue = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.DuplicateValues);
+				Assert.AreEqual("C71:C83", previousRowValue.Address.ToString());
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\AllConditionalFormatting.xlsx")]
+		public void DeleteRowsWithConditionalFormattingContainedShouldDeleteConditionalFormatting()
+		{
+			var file = new FileInfo(@"AllConditionalFormatting.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				Assert.AreEqual(21, worksheet.ConditionalFormatting.Count);
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.Top));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.TopPercent));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.Bottom));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.BottomPercent));
+				worksheet.DeleteRow(39, 12);
+				Assert.AreEqual(17, worksheet.ConditionalFormatting.Count);
+				Assert.IsFalse(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.Top));
+				Assert.IsFalse(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.TopPercent));
+				Assert.IsFalse(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.Bottom));
+				Assert.IsFalse(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.BottomPercent));
+				var nextRowRule = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.AboveAverage);
+				Assert.AreEqual("C43:C54", nextRowRule.Address.ToString());
+				var previousRowValue = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.Between);
+				Assert.AreEqual("C22:C33", previousRowValue.Address.ToString());
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\AllConditionalFormatting.xlsx")]
+		public void DeleteRowsWithConditionalFormattingPartiallyContainedShouldNotDeleteConditionalFormatting()
+		{
+			var file = new FileInfo(@"AllConditionalFormatting.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				Assert.AreEqual(21, worksheet.ConditionalFormatting.Count);
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.Top));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.TopPercent));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.Bottom));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.BottomPercent));
+				worksheet.DeleteRow(39, 11);
+				Assert.AreEqual(21, worksheet.ConditionalFormatting.Count);
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.Top));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.TopPercent));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.Bottom));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.BottomPercent));
+				var nextRowRule = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.AboveAverage);
+				Assert.AreEqual("C44:C55", nextRowRule.Address.ToString());
+				var previousRowValue = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.Between);
+				Assert.AreEqual("C22:C33", previousRowValue.Address.ToString());
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\AllConditionalFormatting.xlsx")]
+		public void DeleteRowsWithConditionalFormattingEndContainedShouldNotDeleteConditionalFormatting()
+		{
+			var file = new FileInfo(@"AllConditionalFormatting.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				Assert.AreEqual(21, worksheet.ConditionalFormatting.Count);
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.Top));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.TopPercent));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.Bottom));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.BottomPercent));
+				worksheet.DeleteRow(40, 12);
+				Assert.AreEqual(21, worksheet.ConditionalFormatting.Count);
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.Top));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.TopPercent));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.Bottom));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.BottomPercent));
+				var nextRowRule = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.AboveAverage);
+				Assert.AreEqual("C43:C54", nextRowRule.Address.ToString());
+				var previousRowValue = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.Between);
+				Assert.AreEqual("C22:C33", previousRowValue.Address.ToString());
+			}
+		}
+
+		[TestMethod]
+		public void DeleteRowsWithCombinedAddressConditionalFormatting()
+		{
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet 1");
+				var address = new ExcelAddress("B2:D5,F6:G7,Z10,Z11");
+				var conditionalFormatting = worksheet.ConditionalFormatting.AddContainsBlanks(address);
+				Assert.AreEqual("B2:D5,F6:G7,Z10,Z11", conditionalFormatting.Address.ToString());
+				var sqrefValue = conditionalFormatting.Node.ParentNode.Attributes[ExcelConditionalFormattingConstants.Attributes.Sqref].Value;
+				Assert.AreEqual("B2:D5 F6:G7 Z10 Z11", sqrefValue);
+
+				worksheet.DeleteRow(6, 5);
+				Assert.AreEqual("B2:D5,Z6", conditionalFormatting.Address.ToString());
+				sqrefValue = conditionalFormatting.Node.ParentNode.Attributes[ExcelConditionalFormattingConstants.Attributes.Sqref].Value;
+				Assert.AreEqual("B2:D5 Z6", sqrefValue);
+			}
+		}
+
+		[TestMethod]
+		public void DeleteRowsWithCombinedAddressConditionalFormattingMany()
+		{
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet 1");
+				var address1 = new ExcelAddress("B2:D5,F6:G7,Z10,Z11");
+				var address2 = new ExcelAddress("F7,G8,J11:K12");
+				var conditionalFormatting1 = worksheet.ConditionalFormatting.AddContainsBlanks(address1);
+				var conditionalFormatting2 = worksheet.ConditionalFormatting.AddContainsErrors(address2);
+				Assert.AreEqual("B2:D5,F6:G7,Z10,Z11", conditionalFormatting1.Address.ToString());
+				var sqrefValue = conditionalFormatting1.Node.ParentNode.Attributes[ExcelConditionalFormattingConstants.Attributes.Sqref].Value;
+				Assert.AreEqual("B2:D5 F6:G7 Z10 Z11", sqrefValue);
+				Assert.AreEqual("F7,G8,J11:K12", conditionalFormatting2.Address.ToString());
+				var sqrefValue2 = conditionalFormatting2.Node.ParentNode.Attributes[ExcelConditionalFormattingConstants.Attributes.Sqref].Value;
+				Assert.AreEqual("F7 G8 J11:K12", sqrefValue2);
+
+				worksheet.DeleteRow(6, 5);
+				Assert.AreEqual("B2:D5,Z6", conditionalFormatting1.Address.ToString());
+				sqrefValue = conditionalFormatting1.Node.ParentNode.Attributes[ExcelConditionalFormattingConstants.Attributes.Sqref].Value;
+				Assert.AreEqual("B2:D5 Z6", sqrefValue);
+				Assert.AreEqual("J6:K7", conditionalFormatting2.Address.ToString());
+				sqrefValue2 = conditionalFormatting2.Node.ParentNode.Attributes[ExcelConditionalFormattingConstants.Attributes.Sqref].Value;
+				Assert.AreEqual("J6:K7", sqrefValue2);
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\AllConditionalFormatting.xlsx")]
+		public void DeleteRowsWithCombinedAddressConditionalFormattingX14()
+		{
+			var file = new FileInfo(@"AllConditionalFormatting.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				var rule = worksheet.X14ConditionalFormatting.X14Rules.First(r => r.TopNode.ChildNodes[0].Attributes["type"].Value == "dataBar");
+				Assert.AreEqual("G5:G16,S6:S8", rule.Address);
+				Assert.AreEqual("G5:G16 S6:S8", rule.GetXmlNodeString("xm:sqref"));
+
+				worksheet.DeleteRow(6, 1);
+				Assert.AreEqual("G5:G15,S6:S7", rule.Address);
+				Assert.AreEqual("G5:G15 S6:S7", rule.GetXmlNodeString("xm:sqref"));
+
+				worksheet.DeleteRow(6, 2);
+				Assert.AreEqual("G5:G13", rule.Address);
+				Assert.AreEqual("G5:G13", rule.GetXmlNodeString("xm:sqref"));
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\AllConditionalFormatting.xlsx")]
+		public void DeleteRowsWithConditionalFormattingX14()
+		{
+			var file = new FileInfo(@"AllConditionalFormatting.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				Assert.AreEqual(2, worksheet.X14ConditionalFormatting.X14Rules.Count);
+				Assert.IsTrue(worksheet.X14ConditionalFormatting.X14Rules.Any(f => f.Address == "G5:G16,S6:S8"));
+				worksheet.DeleteRow(5, 12);
+				Assert.AreEqual(1, worksheet.X14ConditionalFormatting.X14Rules.Count);
+				Assert.IsFalse(worksheet.X14ConditionalFormatting.X14Rules.Any(f => f.Address == "G5:G16,S6:S8"));
+				var nextRowRule = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.Between);
+				Assert.AreEqual("C10:C21", nextRowRule.Address.ToString());
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\AllConditionalFormatting.xlsx")]
+		public void DeleteRowsWithConditionalFormattingX14PartiallyContainedShouldNotDelete()
+		{
+			var file = new FileInfo(@"AllConditionalFormatting.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				Assert.AreEqual(2, worksheet.X14ConditionalFormatting.X14Rules.Count);
+				Assert.IsTrue(worksheet.X14ConditionalFormatting.X14Rules.Any(f => f.Address == "G5:G16,S6:S8"));
+				worksheet.DeleteRow(5, 11);
+				Assert.AreEqual(2, worksheet.X14ConditionalFormatting.X14Rules.Count);
+				var transformedRule = worksheet.X14ConditionalFormatting.X14Rules.First(r => r.Address == "G5");
+				Assert.IsNotNull(transformedRule);
+				var nextRowRule = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.Between);
+				Assert.AreEqual("C11:C22", nextRowRule.Address.ToString());
+			}
+		}
+		#endregion
+
+		#region Sparkline
+		[TestMethod]
+		public void DeleteRowWithSparklineContainingNullFormula()
+		{
+			var tempWorkbook = new FileInfo(Path.GetTempFileName());
+			try
+			{
+				using (var package = new ExcelPackage())
+				{
+					var worksheet = package.Workbook.Worksheets.Add("Sheet");
+					var worksheetSparklineGroups = worksheet.SparklineGroups.SparklineGroups;
+
+					var sparklineGroup = new OfficeOpenXml.Drawing.Sparkline.ExcelSparklineGroup(worksheet, worksheet.NameSpaceManager);
+					// Use NULL for Formula
+					var sparkline = new OfficeOpenXml.Drawing.Sparkline.ExcelSparkline(new ExcelAddress("C3"), null, sparklineGroup, worksheet.NameSpaceManager);
+					sparklineGroup.Sparklines.Add(sparkline);
+					worksheet.SparklineGroups.SparklineGroups.Add(sparklineGroup);
+					package.SaveAs(tempWorkbook);
+				}
+				using (var package = new ExcelPackage(tempWorkbook))
+				{
+					var worksheet = package.Workbook.Worksheets["Sheet"];
+					var sparklineGroups = worksheet.SparklineGroups;
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups.Count);
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups[0].Sparklines.Count);
+					Assert.AreEqual("C3", sparklineGroups.SparklineGroups[0].Sparklines[0].HostCell.Address);
+					worksheet.DeleteRow(1, 1);
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups.Count);
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups[0].Sparklines.Count);
+					Assert.AreEqual("C2", sparklineGroups.SparklineGroups[0].Sparklines[0].HostCell.Address);
+				}
+			}
+			finally
+			{
+				tempWorkbook.Delete();
 			}
 		}
 		#endregion
@@ -4488,14 +5144,13 @@ namespace EPPlusTest
 				var range0 = package.Workbook.Names.Add("_xlchart.0", new ExcelRangeBase(worksheet1, "Sheet1!$A$1:$Z$26"));
 				var range1 = package.Workbook.Names.Add("not_an_xlchart.0", new ExcelRangeBase(worksheet2, "Sheet2!$A$1:$Z$26"));
 				var range2 = package.Workbook.Names.Add("_xlchart.2", new ExcelRangeBase(worksheet2, "Sheet2!$A$1:$Z$26"));
-
 				worksheet2.DeleteColumn(10, 10);
-				ExcelRangeBase.SplitAddress(range0.Address, out string workbook, out string worksheet, out string address);
+				ExcelRangeBase.SplitAddress(range0.NameFormula, out string workbook, out string worksheet, out string address);
 				Assert.AreEqual("$A$1:$Z$26", address);
-				ExcelRangeBase.SplitAddress(range1.Address, out workbook, out worksheet, out address);
+				ExcelRangeBase.SplitAddress(range1.NameFormula, out workbook, out worksheet, out address);
 				Assert.AreEqual("$A$1:$P$26", address);
 				address = null;
-				ExcelRangeBase.SplitAddress(range2.Address, out workbook, out worksheet, out address);
+				ExcelRangeBase.SplitAddress(range2.NameFormula, out workbook, out worksheet, out address);
 				Assert.AreEqual("$A$1:$P$26", address);
 			}
 		}
@@ -4510,12 +5165,9 @@ namespace EPPlusTest
 				// Excel 2016 chart series must include a worksheet name and are stored as named ranges of the form "_xlchart.n", where n is a positive integer. 
 				var range0 = worksheet2.Names.Add("myNamedRange", new ExcelRangeBase(worksheet1, "$A$1:$Z$26"));
 				var range1 = package.Workbook.Names.Add("workbookNamedRange", new ExcelRangeBase(worksheet2, "Sheet2!$A$1:$Z$26"));
-
 				worksheet2.DeleteColumn(10, 10);
-				ExcelRangeBase.SplitAddress(range0.Address, out string workbook, out string worksheet, out string address);
-				Assert.AreEqual("$A$1:$P$26", address);
-				ExcelRangeBase.SplitAddress(range1.Address, out workbook, out worksheet, out address);
-				Assert.AreEqual("$A$1:$P$26", address);
+				Assert.AreEqual("'Sheet1'!$A$1:$Z$26", range0.NameFormula);
+				Assert.AreEqual("'Sheet2'!$A$1:$P$26", range1.NameFormula);
 			}
 		}
 
@@ -4592,7 +5244,7 @@ namespace EPPlusTest
 
 				//validate that the Data Validation range has also expanded
 				var validationRange = sheet.DataValidations.First() as OfficeOpenXml.DataValidation.Contracts.IExcelDataValidationList;
-				Assert.AreEqual("='SHEET'!$B$2:$C$2", validationRange.Formula.ExcelFormula);
+				Assert.AreEqual("='Sheet'!$B$2:$C$2", validationRange.Formula.ExcelFormula);
 
 				//validate implicitly addressed Data Validation range has also expanded
 				validationRange = sheet.DataValidations.Last() as OfficeOpenXml.DataValidation.Contracts.IExcelDataValidationList;
@@ -4658,7 +5310,7 @@ namespace EPPlusTest
 
 				sheet2.DeleteColumn(4, 1);
 
-				Assert.AreEqual("SUM('SHEET2'!C3:D3)", sheet1.Cells["C3"].Formula);
+				Assert.AreEqual("SUM('sheet2'!C3:D3)", sheet1.Cells["C3"].Formula);
 			}
 		}
 
@@ -4672,17 +5324,17 @@ namespace EPPlusTest
 				var pivotTable = sheet1.PivotTables.Add(sheet1.Cells["C3:D4"], sheet2.Cells["E5:E7"], "PivotTable");
 				Assert.AreEqual("'sheet1'!C3:D4", pivotTable.Address.FullAddress);
 				Assert.AreEqual(eSourceType.Worksheet, pivotTable.CacheDefinition.CacheSource);
-				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 
 				sheet1.DeleteColumn(1, 1);
 
 				Assert.AreEqual("'sheet1'!B3:C4", pivotTable.Address.FullAddress);
-				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E5:E7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 
 				sheet2.DeleteColumn(1, 1);
 
 				Assert.AreEqual("'sheet1'!B3:C4", pivotTable.Address.FullAddress);
-				Assert.AreEqual("'sheet2'!D5:D7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!D5:D7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 			}
 		}
 
@@ -4699,28 +5351,90 @@ namespace EPPlusTest
 			{
 				using (var package = new ExcelPackage(copy))
 				{
-					var sheet = package.Workbook.Worksheets.First();
-					var sparklines = sheet.SparklineGroups.SparklineGroups;
+					var sheet1 = package.Workbook.Worksheets["Sheet1"];
+					var sparklines = sheet1.SparklineGroups.SparklineGroups;
+					Assert.AreEqual(7, sparklines.Count);
+					sheet1.DeleteColumn(5);
 					Assert.AreEqual(6, sparklines.Count);
-					sheet.DeleteColumn(5);
-					Assert.AreEqual(5, sparklines.Count);
+					Assert.AreEqual("Sheet2!B2:I2", sparklines[5].Sparklines[0].Formula.Address);
+					Assert.AreEqual("C12", sparklines[5].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!D6:E6", sparklines[4].Sparklines[0].Formula.Address);
+					Assert.AreEqual("F6", sparklines[4].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!D7:E7", sparklines[3].Sparklines[0].Formula.Address);
+					Assert.AreEqual("F7", sparklines[3].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!D8:E8", sparklines[2].Sparklines[0].Formula.Address);
+					Assert.AreEqual("F8", sparklines[2].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!D6:D8", sparklines[1].Sparklines[0].Formula.Address);
+					Assert.AreEqual("D9", sparklines[1].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!E6:E8", sparklines[0].Sparklines[0].Formula.Address);
+					Assert.AreEqual("E9", sparklines[0].Sparklines[0].HostCell.Address);
 					package.Save();
 				}
 				using (var package = new ExcelPackage(copy))
 				{
-					var sheet = package.Workbook.Worksheets.First();
-					var sparklines = sheet.SparklineGroups.SparklineGroups;
-					Assert.AreEqual(5, sparklines.Count);
+					var sheet1 = package.Workbook.Worksheets["Sheet1"];
+					var sparklines = sheet1.SparklineGroups.SparklineGroups;
+					Assert.AreEqual(6, sparklines.Count);
+					Assert.AreEqual("Sheet2!B2:I2", sparklines[5].Sparklines[0].Formula.Address);
+					Assert.AreEqual("C12", sparklines[5].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!D6:E6", sparklines[4].Sparklines[0].Formula.Address);
+					Assert.AreEqual("F6", sparklines[4].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!D7:E7", sparklines[3].Sparklines[0].Formula.Address);
+					Assert.AreEqual("F7", sparklines[3].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!D8:E8", sparklines[2].Sparklines[0].Formula.Address);
+					Assert.AreEqual("F8", sparklines[2].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!D6:D8", sparklines[1].Sparklines[0].Formula.Address);
+					Assert.AreEqual("D9", sparklines[1].Sparklines[0].HostCell.Address);
 					Assert.AreEqual("'Sheet1'!E6:E8", sparklines[0].Sparklines[0].Formula.Address);
+					Assert.AreEqual("E9", sparklines[0].Sparklines[0].HostCell.Address);
+				}
+			}
+			finally
+			{
+				copy.Delete();
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\Sparkline Demos.xlsx")]
+		public void DeleteColumnUpdatesCrossSheetSparklineFormulas()
+		{
+			var file = new FileInfo("Sparkline Demos.xlsx");
+			Assert.IsTrue(file.Exists);
+			var temp = Path.GetTempFileName();
+			File.Delete(temp);
+			var copy = file.CopyTo(temp);
+			try
+			{
+				using (var package = new ExcelPackage(copy))
+				{
+					var sheet1 = package.Workbook.Worksheets["Sheet1"];
+					var sheet2 = package.Workbook.Worksheets["Sheet2"];
+					var sparklines = sheet1.SparklineGroups.SparklineGroups;
+					Assert.AreEqual(7, sparklines.Count);
+					sheet2.DeleteColumn(4);
+					Assert.AreEqual(7, sparklines.Count);
+					Assert.AreEqual("'Sheet2'!B2:H2", sparklines[6].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!D6:F6", sparklines[5].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!D7:F7", sparklines[4].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!D8:F8", sparklines[3].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!D6:D8", sparklines[2].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!E6:E8", sparklines[1].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!F6:F8", sparklines[0].Sparklines[0].Formula.Address);
+					package.Save();
+				}
+				using (var package = new ExcelPackage(copy))
+				{
+					var sheet1 = package.Workbook.Worksheets["Sheet1"];
+					var sparklines = sheet1.SparklineGroups.SparklineGroups;
+					Assert.AreEqual(7, sparklines.Count);
+					Assert.AreEqual("'Sheet2'!B2:H2", sparklines[6].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!D6:F6", sparklines[5].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!D7:F7", sparklines[4].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!D8:F8", sparklines[3].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!D6:D8", sparklines[2].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!E6:E8", sparklines[1].Sparklines[0].Formula.Address);
+					Assert.AreEqual("Sheet1!F6:F8", sparklines[0].Sparklines[0].Formula.Address);
 				}
 			}
 			finally
@@ -4739,33 +5453,33 @@ namespace EPPlusTest
 			{
 				var worksheet = package.Workbook.Worksheets.First();
 				var pivotTable = worksheet.PivotTables.First();
-				Assert.AreEqual("I10:K27", pivotTable.Address.Address);
+				Assert.AreEqual("I10:J16", pivotTable.Address.Address);
 				Assert.AreEqual(eSourceType.Worksheet, pivotTable.CacheDefinition.CacheSource);
-				Assert.AreEqual("C3:C5", pivotTable.CacheDefinition.SourceRange.Address);
+				Assert.AreEqual("C3:F6", pivotTable.CacheDefinition.GetSourceRangeAddress().Address);
 
 				worksheet.DeleteColumn(1, 1);
 
-				Assert.AreEqual("H10:J27", pivotTable.Address.Address);
-				Assert.AreEqual("B3:B5", pivotTable.CacheDefinition.SourceRange.Address);
+				Assert.AreEqual("H10:I16", pivotTable.Address.Address);
+				Assert.AreEqual("B3:E6", pivotTable.CacheDefinition.GetSourceRangeAddress().Address);
 			}
 		}
 
 		[TestMethod]
-		[DeploymentItem(@"..\..\Workbooks\PivotTableDataSourceTypeExternal.xlsx")]
+		[DeploymentItem(@"..\..\Workbooks\PivotTableWithExternalSource.xlsx")]
 		public void DeleteColumnUpdatesPivotTableSourceRangeHandlesExternalDataSources()
 		{
-			var file = new FileInfo("PivotTableDataSourceTypeExternal.xlsx");
+			var file = new FileInfo("PivotTableWithExternalSource.xlsx");
 			Assert.IsTrue(file.Exists);
 			using (var package = new ExcelPackage(file))
 			{
 				var worksheet = package.Workbook.Worksheets.First();
 				var pivotTable = worksheet.PivotTables.First();
-				Assert.AreEqual("G6:I23", pivotTable.Address.Address);
+				Assert.AreEqual("I2:L5", pivotTable.Address.Address);
 				Assert.AreEqual(eSourceType.External, pivotTable.CacheDefinition.CacheSource);
 
 				worksheet.DeleteColumn(1, 1);
 
-				Assert.AreEqual("F6:H23", pivotTable.Address.Address);
+				Assert.AreEqual("H2:K5", pivotTable.Address.Address);
 			}
 		}
 		#endregion
@@ -4801,12 +5515,12 @@ namespace EPPlusTest
 				var range2 = package.Workbook.Names.Add("_xlchart.2", new ExcelRangeBase(worksheet2, "Sheet2!$B$1:$Z$26"));
 
 				worksheet2.DeleteColumn(1, 10);
-				ExcelRangeBase.SplitAddress(range0.Address, out string workbook, out string worksheet, out string address);
+				ExcelRangeBase.SplitAddress(range0.NameFormula, out string workbook, out string worksheet, out string address);
 				Assert.AreEqual("$A$1:$Z$26", address);
-				ExcelRangeBase.SplitAddress(range1.Address, out workbook, out worksheet, out address);
+				ExcelRangeBase.SplitAddress(range1.NameFormula, out workbook, out worksheet, out address);
 				Assert.AreEqual("$A$1:$P$26", address);
 				address = null;
-				ExcelRangeBase.SplitAddress(range2.Address, out workbook, out worksheet, out address);
+				ExcelRangeBase.SplitAddress(range2.NameFormula, out workbook, out worksheet, out address);
 				Assert.AreEqual("$A$1:$P$26", address);
 			}
 		}
@@ -4866,7 +5580,7 @@ namespace EPPlusTest
 
 				//validate that the Data Validation range has also expanded
 				var validationRange = sheet.DataValidations.First() as OfficeOpenXml.DataValidation.Contracts.IExcelDataValidationList;
-				Assert.AreEqual("='SHEET'!$A$2:$C$2", validationRange.Formula.ExcelFormula);
+				Assert.AreEqual("='Sheet'!$A$2:$C$2", validationRange.Formula.ExcelFormula);
 
 				//validate implicitly addressed Data Validation range has also expanded
 				validationRange = sheet.DataValidations.Last() as OfficeOpenXml.DataValidation.Contracts.IExcelDataValidationList;
@@ -4906,7 +5620,7 @@ namespace EPPlusTest
 
 				sheet2.DeleteColumn(1, 3);
 
-				Assert.AreEqual("SUM('SHEET2'!A3:B3)", sheet1.Cells["C3"].Formula);
+				Assert.AreEqual("SUM('sheet2'!A3:B3)", sheet1.Cells["C3"].Formula);
 			}
 		}
 
@@ -4920,17 +5634,17 @@ namespace EPPlusTest
 				var pivotTable = sheet1.PivotTables.Add(sheet1.Cells["C3:D4"], sheet2.Cells["E5:G7"], "PivotTable");
 				Assert.AreEqual("'sheet1'!C3:D4", pivotTable.Address.FullAddress);
 				Assert.AreEqual(eSourceType.Worksheet, pivotTable.CacheDefinition.CacheSource);
-				Assert.AreEqual("'sheet2'!E5:G7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E5:G7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 
 				sheet1.DeleteColumn(1, 1);
 
 				Assert.AreEqual("'sheet1'!B3:C4", pivotTable.Address.FullAddress);
-				Assert.AreEqual("'sheet2'!E5:G7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E5:G7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 
 				sheet2.DeleteColumn(1, 5);
 
 				Assert.AreEqual("'sheet1'!B3:C4", pivotTable.Address.FullAddress);
-				Assert.AreEqual("'sheet2'!A5:B7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!A5:B7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 			}
 		}
 		#endregion
@@ -4987,10 +5701,10 @@ namespace EPPlusTest
 				var range2 = package.Workbook.Names.Add("_xlchart.2", new ExcelRangeBase(worksheet2, "Sheet2!$B$1:$Z$26"));
 
 				worksheet2.DeleteColumn(1, 26);
-				ExcelRangeBase.SplitAddress(range0.Address, out string workbook, out string worksheet, out string address);
+				ExcelRangeBase.SplitAddress(range0.NameFormula, out string workbook, out string worksheet, out string address);
 				Assert.AreEqual("$A$1:$Z$26", address);
-				Assert.AreEqual("#REF!", range1.Address);
-				Assert.AreEqual("#REF!", range2.Address);
+				Assert.AreEqual("'Sheet2'!#REF!", range1.NameFormula);
+				Assert.AreEqual("'Sheet2'!#REF!", range2.NameFormula);
 			}
 		}
 
@@ -5028,7 +5742,7 @@ namespace EPPlusTest
 
 				//validate that the Data Validation range has also expanded
 				var validationRange = sheet.DataValidations.First() as OfficeOpenXml.DataValidation.Contracts.IExcelDataValidationList;
-				Assert.AreEqual("='SHEET'!#REF!", validationRange.Formula.ExcelFormula);
+				Assert.AreEqual("='Sheet'!#REF!", validationRange.Formula.ExcelFormula);
 
 				//validate implicitly addressed Data Validation range has also expanded
 				validationRange = sheet.DataValidations.Last() as OfficeOpenXml.DataValidation.Contracts.IExcelDataValidationList;
@@ -5105,7 +5819,7 @@ namespace EPPlusTest
 
 				sheet2.DeleteColumn(1, 23);
 
-				Assert.AreEqual("SUM('SHEET2'!#REF!)", sheet1.Cells["C3"].Formula);
+				Assert.AreEqual("SUM('sheet2'!#REF!)", sheet1.Cells["C3"].Formula);
 			}
 		}
 
@@ -5119,17 +5833,17 @@ namespace EPPlusTest
 				var pivotTable = sheet1.PivotTables.Add(sheet1.Cells["C3:D4"], sheet2.Cells["E5:G7"], "PivotTable");
 				Assert.AreEqual("'sheet1'!C3:D4", pivotTable.Address.FullAddress);
 				Assert.AreEqual(eSourceType.Worksheet, pivotTable.CacheDefinition.CacheSource);
-				Assert.AreEqual("'sheet2'!E5:G7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E5:G7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 
 				sheet1.DeleteColumn(1, 1);
 
 				Assert.AreEqual("'sheet1'!B3:C4", pivotTable.Address.FullAddress);
-				Assert.AreEqual("'sheet2'!E5:G7", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!E5:G7", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 
 				sheet2.DeleteColumn(1, 16);
 
 				Assert.AreEqual("'sheet1'!B3:C4", pivotTable.Address.FullAddress);
-				Assert.AreEqual("'sheet2'!#REF!", pivotTable.CacheDefinition.SourceRange.FullAddress);
+				Assert.AreEqual("'sheet2'!#REF!", pivotTable.CacheDefinition.GetSourceRangeAddress().FullAddress);
 			}
 		}
 
@@ -5148,9 +5862,10 @@ namespace EPPlusTest
 				{
 					var sheet = package.Workbook.Worksheets.First();
 					var sparklines = sheet.SparklineGroups.SparklineGroups;
-					Assert.AreEqual(6, sparklines.Count);
+					Assert.AreEqual(7, sparklines.Count);
 					sheet.DeleteColumn(4, 3);
-					Assert.AreEqual(3, sparklines.Count);
+					Assert.AreEqual(4, sparklines.Count);
+					Assert.AreEqual("Sheet2!B2:I2", sparklines[3].Sparklines[0].Formula.Address);
 					Assert.AreEqual("'Sheet1'!#REF!", sparklines[2].Sparklines[0].Formula.Address);
 					Assert.AreEqual("'Sheet1'!#REF!", sparklines[1].Sparklines[0].Formula.Address);
 					Assert.AreEqual("'Sheet1'!#REF!", sparklines[0].Sparklines[0].Formula.Address);
@@ -5160,7 +5875,8 @@ namespace EPPlusTest
 				{
 					var sheet = package.Workbook.Worksheets.First();
 					var sparklines = sheet.SparklineGroups.SparklineGroups;
-					Assert.AreEqual(3, sparklines.Count);
+					Assert.AreEqual(4, sparklines.Count);
+					Assert.AreEqual("Sheet2!B2:I2", sparklines[3].Sparklines[0].Formula.Address);
 					Assert.AreEqual("'Sheet1'!#REF!", sparklines[2].Sparklines[0].Formula.Address);
 					Assert.AreEqual("'Sheet1'!#REF!", sparklines[1].Sparklines[0].Formula.Address);
 					Assert.AreEqual("'Sheet1'!#REF!", sparklines[0].Sparklines[0].Formula.Address);
@@ -5172,6 +5888,236 @@ namespace EPPlusTest
 			}
 		}
 		#endregion
+
+		#region ConditionalFormatting
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\AllConditionalFormatting.xlsx")]
+		public void DeleteColumnsWithConditionalFormattingContainedShouldDeleteConditionalFormatting()
+		{
+			var file = new FileInfo(@"AllConditionalFormatting.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				Assert.AreEqual(21, worksheet.ConditionalFormatting.Count);
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.FiveIconSet));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.ContainsBlanks));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.BottomPercent));
+				worksheet.DeleteColumn(9, 1);
+				Assert.AreEqual(18, worksheet.ConditionalFormatting.Count);
+				Assert.IsFalse(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.FiveIconSet));
+				Assert.IsFalse(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.ContainsBlanks));
+				Assert.IsFalse(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.BottomPercent));
+				var nextColumnRule = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.NotContainsBlanks);
+				Assert.AreEqual("J22:J33", nextColumnRule.Address.ToString());
+				var previousColumnValue = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.Bottom);
+				Assert.AreEqual("G39:G50", previousColumnValue.Address.ToString());
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\AllConditionalFormatting.xlsx")]
+		public void DeleteColumnsWithConditionalFormattingContainedShouldDeleteConditionalFormattingMultipleColumns()
+		{
+			var file = new FileInfo(@"AllConditionalFormatting.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				Assert.AreEqual(21, worksheet.ConditionalFormatting.Count);
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.FiveIconSet));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.ContainsBlanks));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.BottomPercent));
+				Assert.IsTrue(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.NotContainsBlanks));
+				worksheet.DeleteColumn(9, 3);
+				Assert.AreEqual(17, worksheet.ConditionalFormatting.Count);
+				Assert.IsFalse(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.FiveIconSet));
+				Assert.IsFalse(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.ContainsBlanks));
+				Assert.IsFalse(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.BottomPercent));
+				Assert.IsFalse(worksheet.ConditionalFormatting.Any(f => f.Type == eExcelConditionalFormattingRuleType.NotContainsBlanks));
+				var nextColumnRule = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.ContainsErrors);
+				Assert.AreEqual("J22:J33", nextColumnRule.Address.ToString());
+				var previousColumnValue = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.Bottom);
+				Assert.AreEqual("G39:G50", previousColumnValue.Address.ToString());
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\AllConditionalFormatting.xlsx")]
+		public void DeleteColumnsWithConditionalFormattingNotContainedShouldNotDelete()
+		{
+			var file = new FileInfo(@"AllConditionalFormatting.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				Assert.AreEqual(21, worksheet.ConditionalFormatting.Count);
+				var original = worksheet.ConditionalFormatting;
+				worksheet.DeleteColumn(10, 1);
+				Assert.AreEqual(21, worksheet.ConditionalFormatting.Count);
+				Assert.AreEqual(original, worksheet.ConditionalFormatting);
+				var nextColumnRule = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.NotContainsBlanks);
+				Assert.AreEqual("J22:J33", nextColumnRule.Address.ToString());
+				var previousColumnValue = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.Bottom);
+				Assert.AreEqual("G39:G50", previousColumnValue.Address.ToString());
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\AllConditionalFormatting.xlsx")]
+		public void DeleteColumnsWithConditionalFormattingX14()
+		{
+			var file = new FileInfo(@"AllConditionalFormatting.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				Assert.AreEqual(2, worksheet.X14ConditionalFormatting.X14Rules.Count);
+				Assert.IsTrue(worksheet.X14ConditionalFormatting.X14Rules.Any(f => f.Address == "E22:E33"));
+				worksheet.DeleteColumn(5, 1);
+				Assert.AreEqual(1, worksheet.X14ConditionalFormatting.X14Rules.Count);
+				Assert.IsFalse(worksheet.X14ConditionalFormatting.X14Rules.Any(f => f.Address == "E22:E33"));
+				var nextColumnRule = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.ContainsBlanks);
+				Assert.AreEqual("H22:H33", nextColumnRule.Address.ToString());
+				var previousColumnValue = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.TwoColorScale);
+				Assert.AreEqual("C5:C16", previousColumnValue.Address.ToString());
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\AllConditionalFormatting.xlsx")]
+		public void DeleteColumnsWithConditionalFormattingX14Multiples()
+		{
+			var file = new FileInfo(@"AllConditionalFormatting.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				Assert.AreEqual(2, worksheet.X14ConditionalFormatting.X14Rules.Count);
+				Assert.IsTrue(worksheet.X14ConditionalFormatting.X14Rules.Any(f => f.Address == "E22:E33"));
+				worksheet.DeleteColumn(19, 1);
+				worksheet.DeleteColumn(5, 3);
+				Assert.AreEqual(0, worksheet.X14ConditionalFormatting.X14Rules.Count);
+				Assert.IsFalse(worksheet.X14ConditionalFormatting.X14Rules.Any());
+				var nextColumnRule = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.ContainsBlanks);
+				Assert.AreEqual("F22:F33", nextColumnRule.Address.ToString());
+				var previousColumnValue = worksheet.ConditionalFormatting.First(f => f.Type == eExcelConditionalFormattingRuleType.TwoColorScale);
+				Assert.AreEqual("C5:C16", previousColumnValue.Address.ToString());
+			}
+		}
+
+		[TestMethod]
+		public void DeleteColumnsWithCombinedAddressConditionalFormatting()
+		{
+			using (var package = new ExcelPackage())
+			{
+				var worksheet = package.Workbook.Worksheets.Add("Sheet 1");
+				var address = new ExcelAddress("B2:D5,F6:G7,Z10,Z11");
+				var conditionalFormatting = worksheet.ConditionalFormatting.AddContainsBlanks(address);
+				Assert.AreEqual("B2:D5,F6:G7,Z10,Z11", conditionalFormatting.Address.ToString());
+				var sqrefValue = conditionalFormatting.Node.ParentNode.Attributes[ExcelConditionalFormattingConstants.Attributes.Sqref].Value;
+				Assert.AreEqual("B2:D5 F6:G7 Z10 Z11", sqrefValue);
+
+				worksheet.DeleteColumn(6, 5);
+				Assert.AreEqual("B2:D5,U10,U11", conditionalFormatting.Address.ToString());
+				sqrefValue = conditionalFormatting.Node.ParentNode.Attributes[ExcelConditionalFormattingConstants.Attributes.Sqref].Value;
+				Assert.AreEqual("B2:D5 U10 U11", sqrefValue);
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\AllConditionalFormatting.xlsx")]
+		public void DeleteColumnsWithCombinedAddressConditionalFormattingX14()
+		{
+			var file = new FileInfo(@"AllConditionalFormatting.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				var worksheet = package.Workbook.Worksheets.First();
+				var rule = worksheet.X14ConditionalFormatting.X14Rules.First(r => r.TopNode.ChildNodes[0].Attributes["type"].Value == "dataBar");
+				Assert.AreEqual("G5:G16,S6:S8", rule.Address);
+				Assert.AreEqual("G5:G16 S6:S8", rule.GetXmlNodeString("xm:sqref"));
+
+				worksheet.DeleteColumn(6, 1);
+				Assert.AreEqual("F5:F16,R6:R8", rule.Address);
+				Assert.AreEqual("F5:F16 R6:R8", rule.GetXmlNodeString("xm:sqref"));
+
+				worksheet.DeleteColumn(6, 1);
+				Assert.AreEqual("Q6:Q8", rule.Address);
+				Assert.AreEqual("Q6:Q8", rule.GetXmlNodeString("xm:sqref"));
+			}
+		}
+
+		#endregion
+
+		#region Sparkline
+		[TestMethod]
+		public void DeleteColumnWithSparklineContainingNullFormula()
+		{
+			var tempWorkbook = new FileInfo(Path.GetTempFileName());
+			try
+			{
+				using (var package = new ExcelPackage())
+				{
+					var worksheet = package.Workbook.Worksheets.Add("Sheet");
+					var worksheetSparklineGroups = worksheet.SparklineGroups.SparklineGroups;
+
+					var sparklineGroup = new OfficeOpenXml.Drawing.Sparkline.ExcelSparklineGroup(worksheet, worksheet.NameSpaceManager);
+					// Use NULL for Formula
+					var sparkline = new OfficeOpenXml.Drawing.Sparkline.ExcelSparkline(new ExcelAddress("C3"), null, sparklineGroup, worksheet.NameSpaceManager);
+					sparklineGroup.Sparklines.Add(sparkline);
+					worksheet.SparklineGroups.SparklineGroups.Add(sparklineGroup);
+					package.SaveAs(tempWorkbook);
+				}
+				using (var package = new ExcelPackage(tempWorkbook))
+				{
+					var worksheet = package.Workbook.Worksheets["Sheet"];
+					var sparklineGroups = worksheet.SparklineGroups;
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups.Count);
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups[0].Sparklines.Count);
+					Assert.AreEqual("C3", sparklineGroups.SparklineGroups[0].Sparklines[0].HostCell.Address);
+					worksheet.DeleteColumn(1, 1);
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups.Count);
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups[0].Sparklines.Count);
+					Assert.AreEqual("B3", sparklineGroups.SparklineGroups[0].Sparklines[0].HostCell.Address);
+				}
+			}
+			finally
+			{
+				tempWorkbook.Delete();
+			}
+		}
+		#endregion
+		#endregion
+
+		#region Delete Worksheet Tests
+		[TestMethod]
+		public void DeleteWorksheetUpdatesNamedRangesTest()
+		{
+			using (var excelPackage = new ExcelPackage())
+			{
+				var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+				var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+				excelPackage.Workbook.Names.Add("wbName1", "Sheet1!C5");
+				excelPackage.Workbook.Names.Add("wbName2", "Sheet1!C5,Sheet2!B2");
+				excelPackage.Workbook.Names.Add("wbName3", "#N/A");
+				excelPackage.Workbook.Names.Add("wbName4", "#REF!");
+				sheet2.Names.Add("s1Name1", "Sheet1!C5");
+				sheet2.Names.Add("s1Name2", "Sheet1!C5,Sheet2!B2");
+				sheet2.Names.Add("s1Name3", "#N/A");
+				sheet2.Names.Add("s1Name4", "#REF!");
+				excelPackage.Workbook.Worksheets.Delete("Sheet1");
+				Assert.AreEqual("#REF!C5", excelPackage.Workbook.Names["wbName1"].NameFormula);
+				Assert.AreEqual("#REF!C5,'Sheet2'!B2", excelPackage.Workbook.Names["wbName2"].NameFormula);
+				Assert.AreEqual("#N/A", excelPackage.Workbook.Names["wbName3"].NameFormula);
+				Assert.AreEqual("#REF!", excelPackage.Workbook.Names["wbName4"].NameFormula);
+
+				Assert.AreEqual("#REF!C5",sheet2.Names["s1Name1"].NameFormula);
+				Assert.AreEqual("#REF!C5,'Sheet2'!B2", sheet2.Names["s1Name2"].NameFormula);
+				Assert.AreEqual("#N/A", sheet2.Names["s1Name3"].NameFormula);
+				Assert.AreEqual("#REF!", sheet2.Names["s1Name4"].NameFormula);
+			}
+		}
 		#endregion
 
 		#region PivotTable Tests
@@ -5270,25 +6216,217 @@ namespace EPPlusTest
 		}
 
 		[TestMethod]
-		public void RenameWorksheetUpdatesExcel2016ChartSeriesAndOtherNamedRanges()
+		[DeploymentItem(@"..\..\Workbooks\Sparkline Demos.xlsx")]
+		public void RenameWorksheetUpdatesSparklines()
 		{
-			using (ExcelPackage package = new ExcelPackage())
+			var file = new FileInfo("Sparkline Demos.xlsx");
+			Assert.IsTrue(file.Exists);
+			var temp = Path.GetTempFileName();
+			File.Delete(temp);
+			var copy = file.CopyTo(temp);
+			string newSheetName = "a new name";
+			try
 			{
-				var worksheet1 = package.Workbook.Worksheets.Add("Sheet1");
-				var worksheet2 = package.Workbook.Worksheets.Add("Sheet2");
-				// Excel 2016 chart series must include a worksheet name and are stored as named ranges of the form "_xlchart.n", where n is a positive integer. 
-				var range0 = package.Workbook.Names.Add("_xlchart.0", new ExcelRangeBase(worksheet1, "Sheet1!A1:Z26"));
-				var range1 = package.Workbook.Names.Add("not_xlchart.0", new ExcelRangeBase(worksheet2, "Sheet1!A1:Z26"));
-				var range2 = package.Workbook.Names.Add("_xlchart.2", new ExcelRangeBase(worksheet2, "Sheet2!A1:Z26"));
+				using (var package = new ExcelPackage(copy))
+				{
+					var sheet1 = package.Workbook.Worksheets["Sheet1"];
+					var sparklines = sheet1.SparklineGroups.SparklineGroups;
+					Assert.AreEqual(7, sparklines.Count);
+					sheet1.Name = newSheetName;
+					Assert.AreEqual(7, sparklines.Count);
+					Assert.AreEqual("Sheet2!B2:I2", sparklines[6].Sparklines[0].Formula.Address);
+					Assert.AreEqual($"'{newSheetName}'!D6:F6", sparklines[5].Sparklines[0].Formula.Address);
+					Assert.AreEqual($"'{newSheetName}'!D7:F7", sparklines[4].Sparklines[0].Formula.Address);
+					Assert.AreEqual($"'{newSheetName}'!D8:F8", sparklines[3].Sparklines[0].Formula.Address);
+					Assert.AreEqual($"'{newSheetName}'!D6:D8", sparklines[2].Sparklines[0].Formula.Address);
+					Assert.AreEqual($"'{newSheetName}'!E6:E8", sparklines[1].Sparklines[0].Formula.Address);
+					Assert.AreEqual($"'{newSheetName}'!F6:F8", sparklines[0].Sparklines[0].Formula.Address);
+					package.Save();
+				}
+				using (var package = new ExcelPackage(copy))
+				{
+					var sheet1 = package.Workbook.Worksheets[newSheetName];
+					var sparklines = sheet1.SparklineGroups.SparklineGroups;
+					Assert.AreEqual(7, sparklines.Count);
+					Assert.AreEqual("Sheet2!B2:I2", sparklines[6].Sparklines[0].Formula.Address);
+					Assert.AreEqual($"'{newSheetName}'!D6:F6", sparklines[5].Sparklines[0].Formula.Address);
+					Assert.AreEqual($"'{newSheetName}'!D7:F7", sparklines[4].Sparklines[0].Formula.Address);
+					Assert.AreEqual($"'{newSheetName}'!D8:F8", sparklines[3].Sparklines[0].Formula.Address);
+					Assert.AreEqual($"'{newSheetName}'!D6:D8", sparklines[2].Sparklines[0].Formula.Address);
+					Assert.AreEqual($"'{newSheetName}'!E6:E8", sparklines[1].Sparklines[0].Formula.Address);
+					Assert.AreEqual($"'{newSheetName}'!F6:F8", sparklines[0].Sparklines[0].Formula.Address);
+				}
+			}
+			finally
+			{
+				copy.Delete();
+			}
+		}
 
-				worksheet1.Name = "Work Sheet One";
-				ExcelRangeBase.SplitAddress(range0.Address, out string workbook, out string worksheet, out string address);
-				Assert.AreEqual("Work Sheet One", worksheet);
-				ExcelRangeBase.SplitAddress(range1.Address, out workbook, out worksheet, out address);
-				Assert.AreEqual("Work Sheet One", worksheet);
-				address = null;
-				ExcelRangeBase.SplitAddress(range2.Address, out workbook, out worksheet, out address);
-				Assert.AreEqual("Sheet2", worksheet);
+		[TestMethod]
+		[DeploymentItem(@"..\..\Workbooks\Sparkline Demos.xlsx")]
+		public void RenameWorksheetUpdatesCrossSheetSparklinesFormula()
+		{
+			var file = new FileInfo("Sparkline Demos.xlsx");
+			Assert.IsTrue(file.Exists);
+			var temp = Path.GetTempFileName();
+			File.Delete(temp);
+			var copy = file.CopyTo(temp);
+			string newSheetName = "a new name";
+			try
+			{
+				using (var package = new ExcelPackage(copy))
+				{
+					var sheet1 = package.Workbook.Worksheets["Sheet1"];
+					var sheet2 = package.Workbook.Worksheets["Sheet2"];
+					var sparklines = sheet1.SparklineGroups.SparklineGroups;
+					Assert.AreEqual(7, sparklines.Count);
+					sheet2.Name = newSheetName;
+					Assert.AreEqual(7, sparklines.Count);
+					Assert.AreEqual($"'{newSheetName}'!B2:I2", sparklines[6].Sparklines[0].Formula.Address);
+					Assert.AreEqual("C12", sparklines[6].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("Sheet1!D6:F6", sparklines[5].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G6", sparklines[5].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("Sheet1!D7:F7", sparklines[4].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G7", sparklines[4].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("Sheet1!D8:F8", sparklines[3].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G8", sparklines[3].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("Sheet1!D6:D8", sparklines[2].Sparklines[0].Formula.Address);
+					Assert.AreEqual("D9", sparklines[2].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("Sheet1!E6:E8", sparklines[1].Sparklines[0].Formula.Address);
+					Assert.AreEqual("E9", sparklines[1].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("Sheet1!F6:F8", sparklines[0].Sparklines[0].Formula.Address);
+					Assert.AreEqual("F9", sparklines[0].Sparklines[0].HostCell.Address);
+					package.Save();
+				}
+				using (var package = new ExcelPackage(copy))
+				{
+					var sheet1 = package.Workbook.Worksheets["Sheet1"];
+					var sparklines = sheet1.SparklineGroups.SparklineGroups;
+					Assert.AreEqual(7, sparklines.Count);
+					Assert.AreEqual($"'{newSheetName}'!B2:I2", sparklines[6].Sparklines[0].Formula.Address);
+					Assert.AreEqual("C12", sparklines[6].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("Sheet1!D6:F6", sparklines[5].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G6", sparklines[5].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("Sheet1!D7:F7", sparklines[4].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G7", sparklines[4].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("Sheet1!D8:F8", sparklines[3].Sparklines[0].Formula.Address);
+					Assert.AreEqual("G8", sparklines[3].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("Sheet1!D6:D8", sparklines[2].Sparklines[0].Formula.Address);
+					Assert.AreEqual("D9", sparklines[2].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("Sheet1!E6:E8", sparklines[1].Sparklines[0].Formula.Address);
+					Assert.AreEqual("E9", sparklines[1].Sparklines[0].HostCell.Address);
+					Assert.AreEqual("Sheet1!F6:F8", sparklines[0].Sparklines[0].Formula.Address);
+					Assert.AreEqual("F9", sparklines[0].Sparklines[0].HostCell.Address);
+				}
+			}
+			finally
+			{
+				copy.Delete();
+			}
+		}
+
+		[TestMethod]
+		public void RenameWorksheetWithSparklineContainingNullFormula()
+		{
+			var tempWorkbook = new FileInfo(Path.GetTempFileName());
+			try
+			{
+				using (var package = new ExcelPackage())
+				{
+					var worksheet = package.Workbook.Worksheets.Add("Sheet");
+					var worksheetSparklineGroups = worksheet.SparklineGroups.SparklineGroups;
+
+					var sparklineGroup = new OfficeOpenXml.Drawing.Sparkline.ExcelSparklineGroup(worksheet, worksheet.NameSpaceManager);
+					// Use NULL for Formula
+					var sparkline = new OfficeOpenXml.Drawing.Sparkline.ExcelSparkline(new ExcelAddress("C3"), null, sparklineGroup, worksheet.NameSpaceManager);
+					sparklineGroup.Sparklines.Add(sparkline);
+					worksheet.SparklineGroups.SparklineGroups.Add(sparklineGroup);
+					package.SaveAs(tempWorkbook);
+				}
+				using (var package = new ExcelPackage(tempWorkbook))
+				{
+					var worksheet = package.Workbook.Worksheets["Sheet"];
+					var sparklineGroups = worksheet.SparklineGroups;
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups.Count);
+					Assert.AreEqual(1, sparklineGroups.SparklineGroups[0].Sparklines.Count);
+					worksheet.Name = "RenamedSheet";
+				}
+			}
+			finally
+			{
+				tempWorkbook.Delete();
+			}
+		}
+
+		[TestMethod]
+		public void RenameWorksheetUpdatesChartReferences()
+		{
+			FileInfo file = new FileInfo(Path.GetTempFileName());
+			try
+			{
+				using (var package = new ExcelPackage(file))
+				{
+					var worksheet = package.Workbook.Worksheets.Add("chartsheet");
+					var chart = worksheet.Drawings.AddChart("namey", eChartType.Doughnut);
+					var serie = chart.Series.Add("'chartsheet'!C2:C10", "'chartsheet'!D2:D20");
+					serie.HeaderAddress = new ExcelAddress("'chartsheet'!A7");
+					worksheet.Name = "newName";
+					Assert.AreEqual("'newName'!C2:C10", serie.Series);
+					Assert.AreEqual("'newName'!D2:D20", serie.XSeries);
+					Assert.AreEqual("'newName'!A7", serie.HeaderAddress.FullAddress);
+					package.Save();
+				}
+				using (var package = new ExcelPackage(file))
+				{
+					var worksheet = package.Workbook.Worksheets["newName"];
+					var chart = worksheet.Drawings.First() as ExcelChart;
+					var serie = chart.Series[0];
+					Assert.AreEqual("'newName'!C2:C10", serie.Series);
+					Assert.AreEqual("'newName'!D2:D20", serie.XSeries);
+					Assert.AreEqual("'newName'!A7", serie.HeaderAddress.FullAddress);
+				}
+			}
+			finally
+			{
+				if (file.Exists)
+					file.Delete();
+			}
+		}
+
+		[TestMethod]
+		public void RenameWorksheetUpdatesChartCrossSheetReferences()
+		{
+			FileInfo file = new FileInfo(Path.GetTempFileName());
+			try
+			{
+				using (var package = new ExcelPackage(file))
+				{
+					var chartSheet = package.Workbook.Worksheets.Add("chartsheet");
+					var dataSheet = package.Workbook.Worksheets.Add("datasheet");
+					var chart = chartSheet.Drawings.AddChart("namey", eChartType.Doughnut);
+					var serie = chart.Series.Add("'datasheet'!C2:C10", "'datasheet'!D2:D20");
+					serie.HeaderAddress = new ExcelAddress("'datasheet'!A7");
+					dataSheet.Name = "newDataSheetName";
+					Assert.AreEqual("'newDataSheetName'!C2:C10", serie.Series);
+					Assert.AreEqual("'newDataSheetName'!D2:D20", serie.XSeries);
+					Assert.AreEqual("'newDataSheetName'!A7", serie.HeaderAddress.FullAddress);
+					package.Save();
+				}
+				using (var package = new ExcelPackage(file))
+				{
+					var worksheet = package.Workbook.Worksheets["chartsheet"];
+					var chart = worksheet.Drawings.First() as ExcelChart;
+					var serie = chart.Series[0];
+					Assert.AreEqual("'newDataSheetName'!C2:C10", serie.Series);
+					Assert.AreEqual("'newDataSheetName'!D2:D20", serie.XSeries);
+					Assert.AreEqual("'newDataSheetName'!A7", serie.HeaderAddress.FullAddress);
+				}
+			}
+			finally
+			{
+				if (file.Exists)
+					file.Delete();
 			}
 		}
 
@@ -5353,7 +6491,8 @@ namespace EPPlusTest
 		public void SaveIncludesOnlyThoseTablesThatAreNotDeleted()
 		{
 			var file = new FileInfo(Path.GetTempFileName());
-			file.Delete();
+			if (file.Exists)
+				file.Delete();
 			try
 			{
 				using (var package = new ExcelPackage(file))
@@ -5380,7 +6519,45 @@ namespace EPPlusTest
 			}
 			finally
 			{
-				file.Delete();
+				if (file.Exists)
+					file.Delete();
+			}
+		}
+
+		[TestMethod]
+		[DeploymentItem(@"Workbooks\PivotTableWithReference.xlsx")]
+		public void SavePivotTableWithCrossSheetReference()
+		{
+			var file = new FileInfo("PivotTableWithReference.xlsx");
+			Assert.IsTrue(file.Exists);
+			using (var package = new ExcelPackage(file))
+			{
+				package.Save();
+				var pivotTable = package.Workbook.Worksheets.ElementAt(1).PivotTables.First();
+				var refAddress = pivotTable.CacheDefinition.GetXmlNodeString(ExcelPivotCacheDefinition.SourceAddressPath);
+				Assert.AreEqual($"'Venta diaria'!$I$9:$U$15", refAddress);
+			}
+		}
+
+		[TestMethod]
+		public void AddingAndSavingWorksheetDoesNotCreateVmlDrawings()
+		{
+			var file = new FileInfo(Path.GetTempFileName());
+			file.Delete();
+			try
+			{
+				using (var package = new ExcelPackage())
+				{
+					var sheet1 = package.Workbook.Worksheets.Add("Sheet1");
+					var sheetCopy = package.Workbook.Worksheets.Add("Sheet2", sheet1);
+					package.SaveAs(file);
+					Assert.IsFalse(package.Package.TryGetPart(new Uri(@"/xl/drawings/vmlDrawing1.vml", UriKind.Relative), out _));
+				}
+			}
+			finally
+			{
+				if (file.Exists)
+					file.Delete();
 			}
 		}
 		#endregion
@@ -5396,7 +6573,7 @@ namespace EPPlusTest
 				using (var package = new ExcelPackage(file))
 				{
 					var sheet = package.Workbook.Worksheets.Add("Sheet1");
-					sheet.AutoFilterAddress = new ExcelAddressBase("B2:D4");
+					sheet.AutoFilterAddress = new ExcelAddress("B2:D4");
 					Assert.IsTrue(sheet.HasAutoFilters);
 					package.Save();
 				}
@@ -5510,6 +6687,822 @@ namespace EPPlusTest
 			}
 			Thread.CurrentThread.CurrentCulture = currentCulture;
 		}
+		#endregion
+
+		#region Named Range Formula Update Tests
+		#region Copy/Delete Worksheet Tests
+		[TestMethod]
+		public void CopyWorksheetWithWorksheetScopedNamedRanges()
+		{
+			var tempFile = new FileInfo(Path.GetTempFileName());
+			if (tempFile.Exists)
+				tempFile.Delete();
+			try
+			{
+				using (var excelPackage = new ExcelPackage())
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+					var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+					sheet1.Names.Add("name1", "CONCATENATE(Sheet1!B2, Sheet1!$B$2)");
+					sheet1.Names.Add("name2", "CONCATENATE(Sheet2!B2, Sheet2!$B$2)");
+					sheet2.Names.Add("name3", "CONCATENATE(Sheet1!B2, Sheet1!$B$2)");
+					var sheet1Copy = excelPackage.Workbook.Worksheets.Copy("Sheet1", "Sheet1 copy");
+					Assert.AreEqual(0, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(2, sheet1Copy.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE(Sheet1!B2, Sheet1!$B$2)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B2, Sheet2!$B$2)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet1!B2, Sheet1!$B$2)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual("CONCATENATE('Sheet1 copy'!B2,'Sheet1 copy'!$B$2)", sheet1Copy.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE('Sheet2'!B2,'Sheet2'!$B$2)", sheet1Copy.Names["name2"].NameFormula);
+					excelPackage.SaveAs(tempFile);
+				}
+				using (var excelPackage = new ExcelPackage(tempFile))
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets["Sheet1"];
+					var sheet1Copy = excelPackage.Workbook.Worksheets["Sheet1 copy"];
+					var sheet2 = excelPackage.Workbook.Worksheets["Sheet2"];
+					Assert.AreEqual(0, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(2, sheet1Copy.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE(Sheet1!B2, Sheet1!$B$2)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B2, Sheet2!$B$2)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet1!B2, Sheet1!$B$2)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual("CONCATENATE('Sheet1 copy'!B2,'Sheet1 copy'!$B$2)", sheet1Copy.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE('Sheet2'!B2,'Sheet2'!$B$2)", sheet1Copy.Names["name2"].NameFormula);
+				}
+			}
+			finally
+			{
+				if (tempFile.Exists)
+					tempFile.Delete();
+			}
+		}
+
+		[TestMethod]
+		public void CopyWorksheetWithWorkbookScopedNamedRanges()
+		{
+			var tempFile = new FileInfo(Path.GetTempFileName());
+			if (tempFile.Exists)
+				tempFile.Delete();
+			try
+			{
+				using (var excelPackage = new ExcelPackage())
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+					var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+					excelPackage.Workbook.Names.Add("name1", "CONCATENATE(Sheet1!B2, Sheet1!$B$2)");
+					excelPackage.Workbook.Names.Add("name2", "CONCATENATE(Sheet2!B2, Sheet2!$B$2)");
+					var sheet1Copy = excelPackage.Workbook.Worksheets.Copy("Sheet1", "Sheet1 copy");
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual(0, sheet1.Names.Count);
+					Assert.AreEqual(0, sheet1Copy.Names.Count);
+					Assert.AreEqual(0, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE(Sheet1!B2, Sheet1!$B$2)", excelPackage.Workbook.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B2, Sheet2!$B$2)", excelPackage.Workbook.Names["name2"].NameFormula);
+					excelPackage.SaveAs(tempFile);
+				}
+				using (var excelPackage = new ExcelPackage(tempFile))
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets["Sheet1"];
+					var sheet1Copy = excelPackage.Workbook.Worksheets["Sheet1 copy"];
+					var sheet2 = excelPackage.Workbook.Worksheets["Sheet2"];
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual(0, sheet1.Names.Count);
+					Assert.AreEqual(0, sheet1Copy.Names.Count);
+					Assert.AreEqual(0, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE(Sheet1!B2, Sheet1!$B$2)", excelPackage.Workbook.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B2, Sheet2!$B$2)", excelPackage.Workbook.Names["name2"].NameFormula);
+				}
+			}
+			finally
+			{
+				if (tempFile.Exists)
+					tempFile.Delete();
+			}
+		}
+
+		[TestMethod]
+		public void DeleteWorksheetWithWorksheetScopedNamedRanges()
+		{
+			var tempFile = new FileInfo(Path.GetTempFileName());
+			if (tempFile.Exists)
+				tempFile.Delete();
+			try
+			{
+				using (var excelPackage = new ExcelPackage())
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+					var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+					sheet1.Names.Add("name1", "CONCATENATE(Sheet1!B2, Sheet1!$B$2)");
+					sheet1.Names.Add("name2", "CONCATENATE(Sheet2!B2, Sheet2!$B$2)");
+					sheet2.Names.Add("name3", "CONCATENATE(Sheet1!B2, Sheet1!$B$2)");
+					sheet2.Names.Add("name4", "CONCATENATE(Sheet2!B2, Sheet2!$B$2)");
+					excelPackage.Workbook.Worksheets.Delete(sheet1);
+					Assert.AreEqual(0, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual(2, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE(#REF!B2,#REF!$B$2)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual("CONCATENATE('Sheet2'!B2,'Sheet2'!$B$2)", sheet2.Names["name4"].NameFormula);
+					excelPackage.SaveAs(tempFile);
+				}
+				using (var excelPackage = new ExcelPackage(tempFile))
+				{
+					var sheet2 = excelPackage.Workbook.Worksheets["Sheet2"];
+					Assert.AreEqual(2, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE(#REF!B2,#REF!$B$2)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual("CONCATENATE('Sheet2'!B2,'Sheet2'!$B$2)", sheet2.Names["name4"].NameFormula);
+				}
+			}
+			finally
+			{
+				if (tempFile.Exists)
+					tempFile.Delete();
+			}
+		}
+
+		[TestMethod]
+		public void DeleteWorksheetWithWorkbookScopedNamedRanges()
+		{
+			var tempFile = new FileInfo(Path.GetTempFileName());
+			if (tempFile.Exists)
+				tempFile.Delete();
+			try
+			{
+				using (var excelPackage = new ExcelPackage())
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+					var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+					excelPackage.Workbook.Names.Add("name1", "CONCATENATE(Sheet1!B2, Sheet1!$B$2)");
+					excelPackage.Workbook.Names.Add("name2", "CONCATENATE(Sheet2!B2, Sheet2!$B$2)");
+					excelPackage.Workbook.Worksheets.Delete(sheet1);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual(0, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE(#REF!B2,#REF!$B$2)", excelPackage.Workbook.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE('Sheet2'!B2,'Sheet2'!$B$2)", excelPackage.Workbook.Names["name2"].NameFormula);
+					excelPackage.SaveAs(tempFile);
+				}
+				using (var excelPackage = new ExcelPackage(tempFile))
+				{
+					var sheet2 = excelPackage.Workbook.Worksheets["Sheet2"];
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual(0, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE(#REF!B2,#REF!$B$2)", excelPackage.Workbook.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE('Sheet2'!B2,'Sheet2'!$B$2)", excelPackage.Workbook.Names["name2"].NameFormula);
+				}
+			}
+			finally
+			{
+				if (tempFile.Exists)
+					tempFile.Delete();
+			}
+		}
+		#endregion
+
+		#region Insert Row(s) Tests
+		[TestMethod]
+		public void InsertRowBeforeNamedRanges()
+		{
+			var tempFile = new FileInfo(Path.GetTempFileName());
+			if (tempFile.Exists)
+				tempFile.Delete();
+			try
+			{
+				using (var excelPackage = new ExcelPackage())
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+					var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+					sheet1.Names.Add("name1", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					sheet1.Names.Add("name2", "CONCATENATE(Sheet2!B5, Sheet2!$B$5)");
+					sheet2.Names.Add("name3", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					excelPackage.Workbook.Names.Add("name4", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					excelPackage.Workbook.Names.Add("name5", "CONCATENATE(Sheet2!B5, Sheet2!$B$5)");
+					sheet1.InsertRow(4, 1);
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$6)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$6)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$6)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+					excelPackage.SaveAs(tempFile);
+				}
+				using (var excelPackage = new ExcelPackage(tempFile))
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets["Sheet1"];
+					var sheet2 = excelPackage.Workbook.Worksheets["Sheet2"];
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$6)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$6)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$6)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+				}
+			}
+			finally
+			{
+				if (tempFile.Exists)
+					tempFile.Delete();
+			}
+		}
+
+		[TestMethod]
+		public void InsertMultipleRowsBeforeNamedRanges()
+		{
+			var tempFile = new FileInfo(Path.GetTempFileName());
+			if (tempFile.Exists)
+				tempFile.Delete();
+			try
+			{
+				using (var excelPackage = new ExcelPackage())
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+					var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+					sheet1.Names.Add("name1", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					sheet1.Names.Add("name2", "CONCATENATE(Sheet2!B5, Sheet2!$B$5)");
+					sheet2.Names.Add("name3", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					excelPackage.Workbook.Names.Add("name4", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					excelPackage.Workbook.Names.Add("name5", "CONCATENATE(Sheet2!B5, Sheet2!$B$5)");
+					sheet1.InsertRow(4, 3);
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$8)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$8)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$8)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+					excelPackage.SaveAs(tempFile);
+				}
+				using (var excelPackage = new ExcelPackage(tempFile))
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets["Sheet1"];
+					var sheet2 = excelPackage.Workbook.Worksheets["Sheet2"];
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$8)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$8)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$8)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+				}
+			}
+			finally
+			{
+				if (tempFile.Exists)
+					tempFile.Delete();
+			}
+		}
+
+		[TestMethod]
+		public void InsertRowAfterNamedRanges()
+		{
+			var tempFile = new FileInfo(Path.GetTempFileName());
+			if (tempFile.Exists)
+				tempFile.Delete();
+			try
+			{
+				using (var excelPackage = new ExcelPackage())
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+					var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+					sheet1.Names.Add("name1", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					sheet1.Names.Add("name2", "CONCATENATE(Sheet2!B5, Sheet2!$B$5)");
+					sheet2.Names.Add("name3", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					excelPackage.Workbook.Names.Add("name4", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					excelPackage.Workbook.Names.Add("name5", "CONCATENATE(Sheet2!B5, Sheet2!$B$5)");
+					sheet1.InsertRow(6, 1);
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+					excelPackage.SaveAs(tempFile);
+				}
+				using (var excelPackage = new ExcelPackage(tempFile))
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets["Sheet1"];
+					var sheet2 = excelPackage.Workbook.Worksheets["Sheet2"];
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+				}
+			}
+			finally
+			{
+				if (tempFile.Exists)
+					tempFile.Delete();
+			}
+		}
+		#endregion
+
+		#region Insert Column(s) Tests
+		[TestMethod]
+		public void InsertColumnBeforeNamedRanges()
+		{
+			var tempFile = new FileInfo(Path.GetTempFileName());
+			if (tempFile.Exists)
+				tempFile.Delete();
+			try
+			{
+				using (var excelPackage = new ExcelPackage())
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+					var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+					sheet1.Names.Add("name1", "CONCATENATE(Sheet1!D5, Sheet1!$D$5)");
+					sheet1.Names.Add("name2", "CONCATENATE(Sheet2!D5, Sheet2!$D$5)");
+					sheet2.Names.Add("name3", "CONCATENATE(Sheet1!D5, Sheet1!$D$5)");
+					excelPackage.Workbook.Names.Add("name4", "CONCATENATE(Sheet1!D5, Sheet1!$D$5)");
+					excelPackage.Workbook.Names.Add("name5", "CONCATENATE(Sheet2!D5, Sheet2!$D$5)");
+					sheet1.InsertColumn(2, 1);
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$E$5)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!D5,Sheet2!$D$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$E$5)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$E$5)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!D5,Sheet2!$D$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+					excelPackage.SaveAs(tempFile);
+				}
+				using (var excelPackage = new ExcelPackage(tempFile))
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets["Sheet1"];
+					var sheet2 = excelPackage.Workbook.Worksheets["Sheet2"];
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$E$5)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!D5,Sheet2!$D$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$E$5)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$E$5)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!D5,Sheet2!$D$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+				}
+			}
+			finally
+			{
+				if (tempFile.Exists)
+					tempFile.Delete();
+			}
+		}
+
+		[TestMethod]
+		public void InsertMultipleColumnsBeforeNamedRanges()
+		{
+			var tempFile = new FileInfo(Path.GetTempFileName());
+			if (tempFile.Exists)
+				tempFile.Delete();
+			try
+			{
+				using (var excelPackage = new ExcelPackage())
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+					var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+					sheet1.Names.Add("name1", "CONCATENATE(Sheet1!D5, Sheet1!$D$5)");
+					sheet1.Names.Add("name2", "CONCATENATE(Sheet2!D5, Sheet2!$D$5)");
+					sheet2.Names.Add("name3", "CONCATENATE(Sheet1!D5, Sheet1!$D$5)");
+					excelPackage.Workbook.Names.Add("name4", "CONCATENATE(Sheet1!D5, Sheet1!$D$5)");
+					excelPackage.Workbook.Names.Add("name5", "CONCATENATE(Sheet2!D5, Sheet2!$D$5)");
+					sheet1.InsertColumn(2, 3);
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$G$5)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!D5,Sheet2!$D$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$G$5)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$G$5)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!D5,Sheet2!$D$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+					excelPackage.SaveAs(tempFile);
+				}
+				using (var excelPackage = new ExcelPackage(tempFile))
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets["Sheet1"];
+					var sheet2 = excelPackage.Workbook.Worksheets["Sheet2"];
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$G$5)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!D5,Sheet2!$D$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$G$5)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$G$5)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!D5,Sheet2!$D$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+				}
+			}
+			finally
+			{
+				if (tempFile.Exists)
+					tempFile.Delete();
+			}
+		}
+
+		[TestMethod]
+		public void InsertColumnAfterNamedRanges()
+		{
+			var tempFile = new FileInfo(Path.GetTempFileName());
+			if (tempFile.Exists)
+				tempFile.Delete();
+			try
+			{
+				using (var excelPackage = new ExcelPackage())
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+					var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+					sheet1.Names.Add("name1", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					sheet1.Names.Add("name2", "CONCATENATE(Sheet2!B5, Sheet2!$B$5)");
+					sheet2.Names.Add("name3", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					excelPackage.Workbook.Names.Add("name4", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					excelPackage.Workbook.Names.Add("name5", "CONCATENATE(Sheet2!B5, Sheet2!$B$5)");
+					sheet1.InsertColumn(6, 1);
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+					excelPackage.SaveAs(tempFile);
+				}
+				using (var excelPackage = new ExcelPackage(tempFile))
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets["Sheet1"];
+					var sheet2 = excelPackage.Workbook.Worksheets["Sheet2"];
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+				}
+			}
+			finally
+			{
+				if (tempFile.Exists)
+					tempFile.Delete();
+			}
+		}
+		#endregion
+
+		#region Delete Row(s) Tests
+		[TestMethod]
+		public void DeleteRowBeforeNamedRanges()
+		{
+			var tempFile = new FileInfo(Path.GetTempFileName());
+			if (tempFile.Exists)
+				tempFile.Delete();
+			try
+			{
+				using (var excelPackage = new ExcelPackage())
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+					var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+					sheet1.Names.Add("name1", "CONCATENATE(Sheet1!D5, Sheet1!$D$5)");
+					sheet1.Names.Add("name2", "CONCATENATE(Sheet2!D5, Sheet2!$D$5)");
+					sheet2.Names.Add("name3", "CONCATENATE(Sheet1!D5, Sheet1!$D$5)");
+					excelPackage.Workbook.Names.Add("name4", "CONCATENATE(Sheet1!D5, Sheet1!$D$5)");
+					excelPackage.Workbook.Names.Add("name5", "CONCATENATE(Sheet2!D5, Sheet2!$D$5)");
+					sheet1.DeleteRow(3, 1);
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$D$4)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!D5,Sheet2!$D$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$D$4)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$D$4)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!D5,Sheet2!$D$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+					excelPackage.SaveAs(tempFile);
+				}
+				using (var excelPackage = new ExcelPackage(tempFile))
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets["Sheet1"];
+					var sheet2 = excelPackage.Workbook.Worksheets["Sheet2"];
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$D$4)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!D5,Sheet2!$D$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$D$4)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$D$4)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!D5,Sheet2!$D$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+				}
+			}
+			finally
+			{
+				if (tempFile.Exists)
+					tempFile.Delete();
+			}
+		}
+
+		[TestMethod]
+		public void DeleteMultipleRowsBeforeNamedRanges()
+		{
+			var tempFile = new FileInfo(Path.GetTempFileName());
+			if (tempFile.Exists)
+				tempFile.Delete();
+			try
+			{
+				using (var excelPackage = new ExcelPackage())
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+					var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+					sheet1.Names.Add("name1", "CONCATENATE(Sheet1!F5, Sheet1!$F$5)");
+					sheet1.Names.Add("name2", "CONCATENATE(Sheet2!F5, Sheet2!$F$5)");
+					sheet2.Names.Add("name3", "CONCATENATE(Sheet1!F5, Sheet1!$F$5)");
+					excelPackage.Workbook.Names.Add("name4", "CONCATENATE(Sheet1!F5, Sheet1!$F$5)");
+					excelPackage.Workbook.Names.Add("name5", "CONCATENATE(Sheet2!F5, Sheet2!$F$5)");
+					sheet1.DeleteRow(2, 3);
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!F5,'Sheet1'!$F$2)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!F5,Sheet2!$F$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!F5,'Sheet1'!$F$2)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!F5,'Sheet1'!$F$2)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!F5,Sheet2!$F$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+					excelPackage.SaveAs(tempFile);
+				}
+				using (var excelPackage = new ExcelPackage(tempFile))
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets["Sheet1"];
+					var sheet2 = excelPackage.Workbook.Worksheets["Sheet2"];
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!F5,'Sheet1'!$F$2)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!F5,Sheet2!$F$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!F5,'Sheet1'!$F$2)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!F5,'Sheet1'!$F$2)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!F5,Sheet2!$F$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+				}
+			}
+			finally
+			{
+				if (tempFile.Exists)
+					tempFile.Delete();
+			}
+		}
+
+		[TestMethod]
+		public void DeleteRowAfterNamedRanges()
+		{
+			var tempFile = new FileInfo(Path.GetTempFileName());
+			if (tempFile.Exists)
+				tempFile.Delete();
+			try
+			{
+				using (var excelPackage = new ExcelPackage())
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+					var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+					sheet1.Names.Add("name1", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					sheet1.Names.Add("name2", "CONCATENATE(Sheet2!B5, Sheet2!$B$5)");
+					sheet2.Names.Add("name3", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					excelPackage.Workbook.Names.Add("name4", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					excelPackage.Workbook.Names.Add("name5", "CONCATENATE(Sheet2!B5, Sheet2!$B$5)");
+					sheet1.DeleteRow(7, 1);
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+					excelPackage.SaveAs(tempFile);
+				}
+				using (var excelPackage = new ExcelPackage(tempFile))
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets["Sheet1"];
+					var sheet2 = excelPackage.Workbook.Worksheets["Sheet2"];
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+				}
+			}
+			finally
+			{
+				if (tempFile.Exists)
+					tempFile.Delete();
+			}
+		}
+		#endregion
+
+		#region Delete Columnn(s) Tests
+		[TestMethod]
+		public void DeleteColumnBeforeNamedRanges()
+		{
+			var tempFile = new FileInfo(Path.GetTempFileName());
+			if (tempFile.Exists)
+				tempFile.Delete();
+			try
+			{
+				using (var excelPackage = new ExcelPackage())
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+					var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+					sheet1.Names.Add("name1", "CONCATENATE(Sheet1!D5, Sheet1!$D$5)");
+					sheet1.Names.Add("name2", "CONCATENATE(Sheet2!D5, Sheet2!$D$5)");
+					sheet2.Names.Add("name3", "CONCATENATE(Sheet1!D5, Sheet1!$D$5)");
+					excelPackage.Workbook.Names.Add("name4", "CONCATENATE(Sheet1!D5, Sheet1!$D$5)");
+					excelPackage.Workbook.Names.Add("name5", "CONCATENATE(Sheet2!D5, Sheet2!$D$5)");
+					sheet1.DeleteColumn(2, 1);
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$C$5)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!D5,Sheet2!$D$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$C$5)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$C$5)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!D5,Sheet2!$D$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+					excelPackage.SaveAs(tempFile);
+				}
+				using (var excelPackage = new ExcelPackage(tempFile))
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets["Sheet1"];
+					var sheet2 = excelPackage.Workbook.Worksheets["Sheet2"];
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$C$5)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!D5,Sheet2!$D$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$C$5)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!D5,'Sheet1'!$C$5)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!D5,Sheet2!$D$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+				}
+			}
+			finally
+			{
+				if (tempFile.Exists)
+					tempFile.Delete();
+			}
+		}
+
+		[TestMethod]
+		public void DeleteMultipleColumnsBeforeNamedRanges()
+		{
+			var tempFile = new FileInfo(Path.GetTempFileName());
+			if (tempFile.Exists)
+				tempFile.Delete();
+			try
+			{
+				using (var excelPackage = new ExcelPackage())
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+					var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+					sheet1.Names.Add("name1", "CONCATENATE(Sheet1!F5, Sheet1!$F$5)");
+					sheet1.Names.Add("name2", "CONCATENATE(Sheet2!F5, Sheet2!$F$5)");
+					sheet2.Names.Add("name3", "CONCATENATE(Sheet1!F5, Sheet1!$F$5)");
+					excelPackage.Workbook.Names.Add("name4", "CONCATENATE(Sheet1!F5, Sheet1!$F$5)");
+					excelPackage.Workbook.Names.Add("name5", "CONCATENATE(Sheet2!F5, Sheet2!$F$5)");
+					sheet1.DeleteColumn(2, 3);
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!F5,'Sheet1'!$C$5)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!F5,Sheet2!$F$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!F5,'Sheet1'!$C$5)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!F5,'Sheet1'!$C$5)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!F5,Sheet2!$F$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+					excelPackage.SaveAs(tempFile);
+				}
+				using (var excelPackage = new ExcelPackage(tempFile))
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets["Sheet1"];
+					var sheet2 = excelPackage.Workbook.Worksheets["Sheet2"];
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!F5,'Sheet1'!$C$5)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!F5,Sheet2!$F$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!F5,'Sheet1'!$C$5)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!F5,'Sheet1'!$C$5)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!F5,Sheet2!$F$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+				}
+			}
+			finally
+			{
+				if (tempFile.Exists)
+					tempFile.Delete();
+			}
+		}
+
+		[TestMethod]
+		public void DeleteColumnAfterNamedRanges()
+		{
+			var tempFile = new FileInfo(Path.GetTempFileName());
+			if (tempFile.Exists)
+				tempFile.Delete();
+			try
+			{
+				using (var excelPackage = new ExcelPackage())
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets.Add("Sheet1");
+					var sheet2 = excelPackage.Workbook.Worksheets.Add("Sheet2");
+					sheet1.Names.Add("name1", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					sheet1.Names.Add("name2", "CONCATENATE(Sheet2!B5, Sheet2!$B$5)");
+					sheet2.Names.Add("name3", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					excelPackage.Workbook.Names.Add("name4", "CONCATENATE(Sheet1!B5, Sheet1!$B$5)");
+					excelPackage.Workbook.Names.Add("name5", "CONCATENATE(Sheet2!B5, Sheet2!$B$5)");
+					sheet1.InsertColumn(6, 1);
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+					excelPackage.SaveAs(tempFile);
+				}
+				using (var excelPackage = new ExcelPackage(tempFile))
+				{
+					var sheet1 = excelPackage.Workbook.Worksheets["Sheet1"];
+					var sheet2 = excelPackage.Workbook.Worksheets["Sheet2"];
+					Assert.AreEqual(2, sheet1.Names.Count);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", sheet1.Names["name1"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", sheet1.Names["name2"].NameFormula);
+					Assert.AreEqual(1, sheet2.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", sheet2.Names["name3"].NameFormula);
+					Assert.AreEqual(2, excelPackage.Workbook.Names.Count);
+					Assert.AreEqual("CONCATENATE('Sheet1'!B5,'Sheet1'!$B$5)", excelPackage.Workbook.Names["name4"].NameFormula);
+					Assert.AreEqual("CONCATENATE(Sheet2!B5,Sheet2!$B$5)", excelPackage.Workbook.Names["name5"].NameFormula);
+				}
+			}
+			finally
+			{
+				if (tempFile.Exists)
+					tempFile.Delete();
+			}
+		}
+		#endregion
 		#endregion
 	}
 }

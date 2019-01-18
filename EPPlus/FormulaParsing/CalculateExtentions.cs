@@ -30,14 +30,23 @@
  *******************************************************************************/
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using OfficeOpenXml.FormulaParsing;
 using OfficeOpenXml.FormulaParsing.Exceptions;
+using OfficeOpenXml.FormulaParsing.ExpressionGraph;
 using OfficeOpenXml.FormulaParsing.LexicalAnalysis;
+using OfficeOpenXml.Style;
+using OfficeOpenXml.Utils;
 
 namespace OfficeOpenXml
 {
+	/// <summary>
+	/// A class that calculates a <see cref="ExcelWorksheet"/>, <see cref="ExcelRangeBase"/>, 
+	/// or formula string.
+	/// </summary>
 	public static class CalculationExtension
 	{
 		#region Public Static Methods
@@ -111,13 +120,16 @@ namespace OfficeOpenXml
 		/// </summary>
 		/// <param name="range">The range to be calculated.</param>
 		/// <param name="options">Settings for this calculation.</param>
-		public static void Calculate(this ExcelRangeBase range, ExcelCalculationOption options)
+		/// <param name="setResultStyle">Indicates whether or not to set the cell's style based on the calculation result.</param>
+		public static void Calculate(this ExcelRangeBase range, ExcelCalculationOption options, bool setResultStyle = false)
 		{
 			Init(range.myWorkbook);
 			var parser = range.myWorkbook.FormulaParser;
 			parser.InitNewCalc();
+			if (range.IsName)
+				range = AddressUtility.GetFormulaAsCellRange(range.Worksheet.Workbook, range.Worksheet, range.Address);
 			var dc = DependencyChainFactory.Create(range, options);
-			CalcChain(range.myWorkbook, parser, dc);
+			CalcChain(range.myWorkbook, parser, dc, setResultStyle);
 		}
 
 		/// <summary>
@@ -132,13 +144,29 @@ namespace OfficeOpenXml
 		}
 
 		/// <summary>
+		/// Calculate a specific <paramref name="formula"/> in the context of the specified <paramref name="worksheet"/>, 
+		/// <paramref name="row"/>, and <paramref name="column"/>.
+		/// </summary>
+		/// <param name="worksheet">The worksheet whose context should be used during the calculation for references that do not specify a sheet.</param>
+		/// <param name="formula">The formula to be calculated.</param>
+		/// <param name="row">The row within which to evaluate the specified formula.</param>
+		/// <param name="column">The column within which to evaluate the specified formula.</param>
+		/// <returns>The result of the calculation.</returns>
+		public static object Calculate(this ExcelWorksheet worksheet, string formula, int row, int column)
+		{
+			return Calculate(worksheet, formula, new ExcelCalculationOption(), row, column);
+		}
+
+		/// <summary>
 		/// Calculate a specific <paramref name="formula"/> in the context of the specified <paramref name="worksheet"/> with the specified <paramref name="options"/>.
 		/// </summary>
 		/// <param name="worksheet">The worksheet whose context should be used during the calculation for references that do not specify a sheet.</param>
 		/// <param name="formula">The formula to be calculated.</param>
 		/// <param name="options">The options for this calculation. At the moment, this does nothing.</param>
+		/// <param name="row">The row within which to evaluate the specified formula.</param>
+		/// <param name="column">The column within which to evaluate the specified formula.</param>
 		/// <returns>The result of the calculation.</returns>
-		public static object Calculate(this ExcelWorksheet worksheet, string formula, ExcelCalculationOption options)
+		public static object Calculate(this ExcelWorksheet worksheet, string formula, ExcelCalculationOption options, int row = -1, int column = -1)
 		{
 			try
 			{
@@ -154,7 +182,7 @@ namespace OfficeOpenXml
 
 				CalcChain(worksheet.Workbook, parser, dc);
 
-				return parser.ParseCell(f.Tokens, worksheet.Name, -1, -1);
+				return parser.ParseCell(f.Tokens, worksheet.Name, row, column, out _);
 			}
 			catch (Exception ex)
 			{
@@ -164,7 +192,7 @@ namespace OfficeOpenXml
 		#endregion
 
 		#region Private Static Methods
-		private static void CalcChain(ExcelWorkbook wb, FormulaParser parser, DependencyChain dc)
+		private static void CalcChain(ExcelWorkbook wb, FormulaParser parser, DependencyChain dc, bool setResultSyle = false)
 		{
 			var debug = parser.Logger != null;
 			foreach (var ix in dc.CalcOrder)
@@ -173,12 +201,14 @@ namespace OfficeOpenXml
 				try
 				{
 					var ws = wb.Worksheets.GetBySheetID(item.SheetID);
-					var v = parser.ParseCell(item.Tokens, ws == null ? "" : ws.Name, item.Row, item.Column);
-					SetValue(wb, item, v);
+					var v = parser.ParseCell(item.Tokens, ws == null ? "" : ws.Name, item.Row, item.Column, out DataType dataType);
+					if (v is IEnumerable enumerable && !(v is string))
+						v = enumerable.Cast<object>().FirstOrDefault();
+					CalculationExtension.SetValue(wb, item, v);
+					if (setResultSyle)
+						CalculationExtension.SetStyle(wb, item, dataType);
 					if (debug)
-					{
 						parser.Logger.LogCellCounted();
-					}
 					Thread.Sleep(0);
 				}
 				catch (Exception ex) when ((ex is OperationCanceledException) == false)
@@ -192,7 +222,7 @@ namespace OfficeOpenXml
 
 		private static void Init(ExcelWorkbook workbook)
 		{
-			workbook.FormulaTokens = new CellStore<List<Token>>(); ;
+			workbook.FormulaTokens = CellStore.Build<List<Token>>();
 			foreach (var ws in workbook.Worksheets)
 			{
 				if (!(ws is ExcelChartsheet))
@@ -201,7 +231,7 @@ namespace OfficeOpenXml
 					{
 						ws._formulaTokens.Dispose();
 					}
-					ws._formulaTokens = new CellStore<List<Token>>();
+					ws._formulaTokens = CellStore.Build<List<Token>>();
 				}
 			}
 		}
@@ -210,21 +240,27 @@ namespace OfficeOpenXml
 		{
 			if (item.Column == 0)
 			{
-				if (item.SheetID == -1)
-				{
-					workbook.Names[item.Row].NameValue = v;
-				}
-				else
-				{
-					var sh = workbook.Worksheets.GetBySheetID(item.SheetID);
-					sh.Names[item.Row].NameValue = v;
-				}
+				// This used to set named range values, which no longer exist.
+				throw new InvalidOperationException("Invalid cell column: 0.");
 			}
 			else
 			{
 				var sheet = workbook.Worksheets.GetBySheetID(item.SheetID);
 				sheet.SetValueInner(item.Row, item.Column, v);
 			}
+		}
+
+		private static void SetStyle(ExcelWorkbook workbook, FormulaCell item, DataType dataType)
+		{
+			var sheet = workbook.Worksheets.GetBySheetID(item.SheetID);
+			if (dataType == DataType.Date)
+				sheet.Cells[item.Row, item.Column].Style.Numberformat.Format = ExcelNumberFormat.GetFromBuildInFromID(14);
+			else if (dataType == DataType.Time)
+				sheet.Cells[item.Row, item.Column].Style.Numberformat.Format = ExcelNumberFormat.GetFromBuildInFromID(21);
+			else if (dataType == DataType.Integer)
+				sheet.Cells[item.Row, item.Column].Style.Numberformat.Format = ExcelNumberFormat.GetFromBuildInFromID(1);
+			else if (dataType == DataType.Decimal)
+				sheet.Cells[item.Row, item.Column].Style.Numberformat.Format = ExcelNumberFormat.GetFromBuildInFromID(2);
 		}
 		#endregion
 	}

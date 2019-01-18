@@ -30,43 +30,45 @@
  *******************************************************************************/
 using System.Collections.Generic;
 using OfficeOpenXml.FormulaParsing.Excel.Functions;
+using OfficeOpenXml.FormulaParsing.Excel.Functions.RefAndLookup;
 
 namespace OfficeOpenXml.FormulaParsing.ExpressionGraph.FunctionCompilers
 {
+	/// <summary>
+	/// Compiles expressions for a lookup-type function.
+	/// </summary>
 	public class LookupFunctionCompiler : FunctionCompiler
 	{
-		public LookupFunctionCompiler(ExcelFunction function)
-			 : base(function)
-		{
+		#region Constructors
+		/// <summary>
+		/// Creates an instance of a <see cref="LookupFunctionCompiler"/>.
+		/// </summary>
+		/// <param name="function">The <see cref="ExcelFunction"/> to compile.</param>
+		public LookupFunctionCompiler(ExcelFunction function) : base(function) { }
+		#endregion
 
-		}
-
+		#region FunctionCompiler Overrides
+		/// <summary>
+		/// Compiles the provided child <see cref="Expression"/>s and invokes the <see cref="ExcelFunction"/>.
+		/// </summary>
+		/// <param name="children">The child <see cref="Expression"/>s to compile.</param>
+		/// <param name="context">The <see cref="ParsingContext"/> for this function compiler.</param>
+		/// <returns>The <see cref="CompileResult"/> from the function.</returns>
 		public override CompileResult Compile(IEnumerable<Expression> children, ParsingContext context)
 		{
 			var args = new List<FunctionArgument>();
-			Function.BeforeInvoke(context);
-			var firstChild = true;
+			base.Function.BeforeInvoke(context);
+			int i = 0;
 			foreach (var child in children)
 			{
-				if (!firstChild || Function.SkipArgumentEvaluation)
-				{
-					child.ParentIsLookupFunction = Function.IsLookupFuction;
-				}
-				else
-				{
-					firstChild = false;
-				}
+				if (base.Function is LookupFunction lookupFunction && lookupFunction.LookupArgumentIndicies.Contains(i))
+					this.ConfigureExcelAddressExpressionToResolveAsRange(child.Children);
 				var arg = child.Compile();
-				if (arg != null)
-				{
-					BuildFunctionArguments(arg.Result, arg.DataType, args);
-				}
-				else
-				{
-					BuildFunctionArguments(null, DataType.Unknown, args);
-				}
+				base.BuildFunctionArguments(arg?.Result, arg?.DataType ?? DataType.Unknown, args);
+				i++;
 			}
-			return Function.Execute(args, context);
+			return base.Function.Execute(args, context);
 		}
+		#endregion
 	}
 }

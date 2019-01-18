@@ -26,6 +26,7 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -36,11 +37,16 @@ namespace OfficeOpenXml.Utils
 	/// </summary>
 	public static class ConvertUtil
 	{
-		internal static bool IsNumeric(object candidate)
+		#region Static Methods
+		internal static bool IsNumeric(object candidate, bool ignoreBool = false)
 		{
-			if (candidate == null) return false;
-			return (candidate.GetType().IsPrimitive || candidate is double || candidate is decimal || candidate is DateTime || candidate is TimeSpan || candidate is long);
+			if (candidate == null)
+				return false;
+			else if (ignoreBool && candidate is bool)
+				return false;
+			return (candidate.GetType().IsPrimitive || candidate is double || candidate is decimal || candidate is long || candidate is DateTime || candidate is TimeSpan);
 		}
+
 		/// <summary>
 		/// Tries to parse a double from the specified <paramref name="candidate"/> which is expected to be a string value.
 		/// </summary>
@@ -60,6 +66,7 @@ namespace OfficeOpenXml.Utils
 			result = 0;
 			return false;
 		}
+
 		/// <summary>
 		/// Tries to parse a boolean value from the specificed <paramref name="candidate"/>.
 		/// </summary>
@@ -102,7 +109,7 @@ namespace OfficeOpenXml.Utils
 		/// <param name="dateCandidate">The object to convert into an Excel OADate.</param>
 		/// <param name="OADate">The resulting Excel OADate that <paramref name="dateCandidate"/> was converted to.</param>
 		/// <returns>Return true if the given object was successfully parsed into an Excel OADate, or false otherwise.</returns>
-		public static bool TryParseDateObjectToOADate(object dateCandidate, out double OADate)
+		public static bool TryParseObjectToDecimal(object dateCandidate, out double OADate)
 		{
 			OADate = -1.0;
 			if (dateCandidate is DateTime dateDateTime)
@@ -160,6 +167,11 @@ namespace OfficeOpenXml.Utils
 				OADate = dateDouble;
 				return true;
 			}
+			else if (dateCandidate is decimal dateDecimal)
+			{
+				OADate = (double)dateDecimal;
+				return true;
+			}
 			else if(dateCandidate is bool dateBool)
 			{
 
@@ -185,7 +197,7 @@ namespace OfficeOpenXml.Utils
 				date = validDate;
 				return true;
 			}
-			else if (TryParseDateObjectToOADate(dateCandidate, out double OADate))
+			else if (TryParseObjectToDecimal(dateCandidate, out double OADate))
 			{
 				// Note: This if statement is to account for an error from Lotus 1-2-3
 				// that Excel implemented which incorrectly includes 2/29/1900 as a valid date;
@@ -207,6 +219,7 @@ namespace OfficeOpenXml.Utils
 			error = eErrorType.Value;
 			return false;
 		}
+
 		/// <summary>
 		/// Convert an object value to a double 
 		/// </summary>
@@ -340,6 +353,7 @@ namespace OfficeOpenXml.Utils
 			ExcelEncodeString(sb, t, true);
 			return sb.ToString();
 		}
+
 		internal static string ExcelDecodeString(string t)
 		{
 			var match = Regex.Match(t, "(_x005F|_x[0-9A-F]{4,4}_)");
@@ -373,6 +387,74 @@ namespace OfficeOpenXml.Utils
 			ret.Append(t.Substring(prevIndex, t.Length - prevIndex));
 			return ret.ToString();
 		}
+
+		/// <summary>
+		/// Assumes the candidate string can be parsed to a number and validates the number groups sizes. 
+		/// </summary>
+		/// <param name="candidate">The string to be validated.</param>
+		/// <param name="info">The <see cref="NumberFormatInfo"/> of the current culture.</param>
+		/// <returns>True if the number group sizes are valid, otherwise false.</returns>
+		internal static bool ValidateNumberGroupSizes(string candidate, NumberFormatInfo info)
+		{
+			if (candidate == null)
+				return false;
+			if (!candidate.Contains(info.NumberGroupSeparator))
+				return true;
+			if (!info.NumberGroupSizes.Any())
+				return false;
+			// Remove decimal point and decimal digits.
+			if (candidate.Contains(info.NumberDecimalSeparator))
+				candidate = candidate.Remove(candidate.IndexOf(info.NumberDecimalSeparator));
+			// Remove scientific notation suffix.
+			var eIndex = candidate.IndexOf("e", StringComparison.CurrentCultureIgnoreCase);
+			if (eIndex != -1)
+				candidate = candidate.Remove(eIndex);
+			// Remove leading negative sign.
+			candidate = candidate.Replace(info.NegativeSign, string.Empty);
+			var groups = candidate.Split(info.NumberGroupSeparator.ToCharArray(), StringSplitOptions.None)
+				.ToArray()
+				.Reverse();
+			int expectedGroupCount = 0;
+			for (int i = 0; i < groups.Count(); i++)
+			{
+				var group = groups.ElementAt(i);
+				if (i < info.NumberGroupSizes.Count())
+					expectedGroupCount = info.NumberGroupSizes.ElementAt(i);
+				// The last group can have fewer than the expected count.
+				if (i + 1 == groups.Count())
+				{
+				// An expected count of 0 indicates no limit on group size.
+					if (expectedGroupCount == 0)
+						return true;
+					var lastGroupCount = groups.Last().Count();
+					return 0 < lastGroupCount && lastGroupCount <= expectedGroupCount;
+				}
+				if (expectedGroupCount != 0 && expectedGroupCount != group.Count())
+					return false;
+			}
+			return true;
+		}
+
+		/// <summary>
+		/// Converts an object to the string representation that Excel uses in XML attributes.
+		/// </summary>
+		/// <param name="value">The object value to convert to a string.</param>
+		/// <returns>The string representation of the provided parameter.</returns>
+		internal static string ConvertObjectToXmlAttributeString(object value)
+		{
+			if (value == null)
+				return null;
+			if (value is DateTime dateTimeVal)
+				return dateTimeVal.ToString("yyyy’-‘MM’-‘dd’T’HH’:’mm’:’ss");
+			else if (ConvertUtil.IsNumeric(value, true) || value is string)
+				return value.ToString();
+			else if (value is bool boolVal)
+				return boolVal ? "1" : "0";
+			else if (value is ExcelErrorValue errorValue)
+				return errorValue.ToString();
+			throw new InvalidOperationException($"Unknown type '{value.GetType()}' in cacheRecord value.");
+		}
+		#endregion
 
 		#region internal cache objects
 		internal static TextInfo _invariantTextInfo = CultureInfo.InvariantCulture.TextInfo;

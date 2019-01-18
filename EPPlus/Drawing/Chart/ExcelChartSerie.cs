@@ -75,22 +75,25 @@ namespace OfficeOpenXml.Drawing.Chart
 			}
 			_seriesPath = string.Format(_seriesPath, _seriesTopPath);
 
-			var np = string.Format(_xSeriesPath, _xSeriesTopPath, isPivot ? "c:multiLvlStrRef" : "c:numRef");
-			var sp = string.Format(_xSeriesPath, _xSeriesTopPath, isPivot ? "c:multiLvlStrRef" : "c:strRef");
-			if (ExistNode(sp))
-			{
-				_xSeriesPath = sp;
-			}
+			string xSeriesStartPath = _xSeriesPath;
+			if (isPivot)
+				_xSeriesPath = string.Format(xSeriesStartPath, _xSeriesTopPath, "c:multiLvlStrRef");
 			else
 			{
-				_xSeriesPath = np;
+				_xSeriesPath = string.Format(xSeriesStartPath, _xSeriesTopPath, "c:strRef");
+				if (!this.ExistNode(_xSeriesPath))
+					_xSeriesPath = string.Format(xSeriesStartPath, _xSeriesTopPath, "c:multiLvlStrRef");
+				if (!this.ExistNode(_xSeriesPath))
+					_xSeriesPath = string.Format(xSeriesStartPath, _xSeriesTopPath, "c:numRef");
 			}
 		}
+
 		internal void SetID(string id)
 		{
 			SetXmlNodeString("c:idx/@val", id);
 			SetXmlNodeString("c:order/@val", id);
 		}
+
 		const string headerPath = "c:tx/c:v";
 		/// <summary>
 		/// Header for the serie.
@@ -120,7 +123,7 @@ namespace OfficeOpenXml.Drawing.Chart
 		/// <summary>
 		/// Header address for the serie.
 		/// </summary>
-		public ExcelAddressBase HeaderAddress
+		public ExcelAddress HeaderAddress
 		{
 			get
 			{
@@ -131,7 +134,7 @@ namespace OfficeOpenXml.Drawing.Chart
 				}
 				else
 				{
-					return new ExcelAddressBase(address);
+					return new ExcelAddress(address);
 				}
 			}
 			set

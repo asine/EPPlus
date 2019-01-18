@@ -216,15 +216,30 @@
     <Compile Include="ConditionalFormatting\X14ConditionalFormattingCollection.cs" />
     <Compile Include="ConditionalFormatting\X14ConditionalFormattingFormula.cs" />
     <Compile Include="ConditionalFormatting\X14CondtionalFormattingRule.cs" />
+    <Compile Include="DataValidation\ExcelDataValidationCollectionBase.cs" />
+    <Compile Include="DataValidation\X14DataValidation\ExcelX14DataValidation.cs" />
+    <Compile Include="DataValidation\X14DataValidation\ExcelX14DataValidationCollection.cs" />
     <Compile Include="Drawing\Slicers\ExcelSlicer.cs" />
     <Compile Include="Drawing\Slicers\ExcelSlicerDrawing.cs" />
     <Compile Include="Drawing\Slicers\ExcelSlicerCache.cs" />
     <Compile Include="Drawing\Slicers\ExcelSlicers.cs" />
+    <Compile Include="Drawing\Slicers\OlapDataNode.cs" />
+    <Compile Include="Drawing\Slicers\PivotTableNode.cs" />
+    <Compile Include="Drawing\Slicers\SlicerCacheItemParent.cs" />
+    <Compile Include="Drawing\Slicers\SlicerLevelNode.cs" />
+    <Compile Include="Drawing\Slicers\SlicerRangeItem.cs" />
+    <Compile Include="Drawing\Slicers\SlicerRangeNode.cs" />
+    <Compile Include="Drawing\Slicers\SlicerSelectionNode.cs" />
+    <Compile Include="Drawing\Slicers\TabularDataNode.cs" />
+    <Compile Include="Drawing\Slicers\TabularItemNode.cs" />
     <Compile Include="Drawing\Sparkline\ExcelSparkline.cs" />
     <Compile Include="Drawing\Sparkline\ExcelSparklineGroup.cs" />
     <Compile Include="Drawing\Sparkline\ExcelSparklineGroups.cs" />
     <Compile Include="Drawing\Sparkline\SparklineEnums.cs" />
+    <Compile Include="Drawing\Vml\ExcelVmlDrawingCommentHelper.cs" />
     <Compile Include="ExcelChartsheet.cs" />
+    <Compile Include="Extensions\StringExtensions.cs" />
+    <Compile Include="ExternalReferenceCollection.cs" />
     <Compile Include="FontSize.cs" />
     <Compile Include="DataValidation\Contracts\IExcelDataValidation.cs" />
     <Compile Include="DataValidation\Contracts\IExcelDataValidationAny.cs" />
@@ -283,7 +298,6 @@
     <Compile Include="Drawing\ExcelPicture.cs" />
     <Compile Include="Drawing\Chart\ExcelRadarChartSerie.cs" />
     <Compile Include="Drawing\Vml\ExcelVmlDrawingPictureCollection.cs" />
-    <Compile Include="Drawing\Vml\ExcelVmlDrawingCommentCollection.cs" />
     <Compile Include="Drawing\Vml\ExcelVmlDrawingPicture.cs" />
     <Compile Include="Drawing\Vml\ExcelVmlDrawingBase.cs" />
     <Compile Include="Encryption\EncryptionHandler.cs" />
@@ -292,7 +306,7 @@
     <Compile Include="Encryption\EncryptionVerifier.cs" />
     <Compile Include="ExcelBackgroundImage.cs" />
     <Compile Include="DataValidation\ExcelDataValidation.cs" />
-    <Compile Include="DataValidation\ExcelDataValidationCollection.cs" />
+    <Compile Include="DataValidation\OriginalDataValidation\ExcelDataValidationCollection.cs" />
     <Compile Include="DataValidation\ExcelDataValidationType.cs" />
     <Compile Include="ExcelEncryption.cs" />
     <Compile Include="ExcelProtectedRange.cs" />
@@ -363,6 +377,7 @@
     <Compile Include="FormulaParsing\Excel\Functions\Database\ExcelDatabaseField.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\Database\ExcelDatabaseRow.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\Database\RowMatcher.cs" />
+    <Compile Include="FormulaParsing\Excel\Functions\DateTime\Workday.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\DateTime\Date.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\DateTime\DateValue.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\DateTime\Day.cs" />
@@ -384,7 +399,7 @@
     <Compile Include="FormulaParsing\Excel\Functions\DateTime\TimeBaseFunction.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\DateTime\Today.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\DateTime\Weekday.cs" />
-    <Compile Include="FormulaParsing\Excel\Functions\DateTime\Workday.cs" />
+    <Compile Include="FormulaParsing\Excel\Functions\DateTime\WorkdayIntl.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\DateTime\Workdays\AdditionalHolidayDays.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\DateTime\Workdays\HolidayWeekdays.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\DateTime\Workdays\HolidayWeekdaysFactory.cs" />
@@ -401,6 +416,7 @@
     <Compile Include="FormulaParsing\Excel\Functions\FunctionArgument.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\FunctionRepository.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\FunctionsModule.cs" />
+    <Compile Include="FormulaParsing\Excel\Functions\RefAndLookup\GetPivotData.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\HiddenValuesHandlingFunction.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\IFunctionModule.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\IFunctionNameProvider.cs" />
@@ -470,6 +486,7 @@
     <Compile Include="FormulaParsing\Excel\Functions\Math\Median.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\Math\Min.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\Math\Mina.cs" />
+    <Compile Include="FormulaParsing\Excel\Functions\Math\MinMaxBase.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\Math\Mod.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\Math\MultipleRangeCriteriasFunction.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\Math\Pi.cs" />
@@ -523,6 +540,7 @@
     <Compile Include="FormulaParsing\Excel\Functions\RefAndLookup\HLookup.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\RefAndLookup\Index.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\RefAndLookup\Indirect.cs" />
+    <Compile Include="FormulaParsing\Excel\Functions\RefAndLookup\IndirectAddress.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\RefAndLookup\Lookup.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\RefAndLookup\LookupArguments.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\RefAndLookup\LookupDirection.cs" />
@@ -534,6 +552,7 @@
     <Compile Include="FormulaParsing\Excel\Functions\RefAndLookup\Row.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\RefAndLookup\Rows.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\RefAndLookup\VLookup.cs" />
+    <Compile Include="FormulaParsing\Excel\Functions\RefAndLookup\OffsetAddress.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\Text\CharFunction.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\Text\Concatenate.cs" />
     <Compile Include="FormulaParsing\Excel\Functions\Text\CStr.cs" />
@@ -568,10 +587,8 @@
     <Compile Include="FormulaParsing\ExpressionGraph\CompileResult.cs" />
     <Compile Include="FormulaParsing\ExpressionGraph\CompileResultFactory.cs" />
     <Compile Include="FormulaParsing\ExpressionGraph\CompileStrategy\CompileStrategy.cs" />
-    <Compile Include="FormulaParsing\ExpressionGraph\CompileStrategy\CompileStrategyFactory.cs" />
     <Compile Include="FormulaParsing\ExpressionGraph\CompileStrategy\DefaultCompileStrategy.cs" />
     <Compile Include="FormulaParsing\ExpressionGraph\CompileStrategy\ICompileStrategyFactory.cs" />
-    <Compile Include="FormulaParsing\ExpressionGraph\CompileStrategy\StringConcatStrategy.cs" />
     <Compile Include="FormulaParsing\ExpressionGraph\ExcelErrorExpression.cs" />
     <Compile Include="FormulaParsing\ExpressionGraph\DataType.cs" />
     <Compile Include="FormulaParsing\ExpressionGraph\DateExpression.cs" />
@@ -640,6 +657,7 @@
     <Compile Include="FormulaParsing\ParsingContext.cs" />
     <Compile Include="FormulaParsing\ParsingScope.cs" />
     <Compile Include="FormulaParsing\ParsingScopes.cs" />
+    <Compile Include="FormulaParsing\ExpressionGraph\StructuredReferenceExpression.cs" />
     <Compile Include="FormulaParsing\Utilities\ArgumentInfo.cs" />
     <Compile Include="FormulaParsing\Utilities\ExtensionMethods.cs" />
     <Compile Include="FormulaParsing\Utilities\IdProvider.cs" />
@@ -649,6 +667,8 @@
     </Compile>
     <Compile Include="FormulaParsing\Utilities\Require.cs" />
     <Compile Include="ICellStore.cs" />
+    <Compile Include="Internationalization\StringResource.cs" />
+    <Compile Include="Internationalization\StringResources.cs" />
     <Compile Include="Packaging\DotNetZip\ComHelper.cs" />
     <Compile Include="Packaging\DotNetZip\CRC32.cs">
       <SubType>Code</SubType>
@@ -748,9 +768,36 @@
     <Compile Include="RangeCollection.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="StructuredReference.cs" />
+    <Compile Include="Table\PivotTable\CacheFieldNode.cs" />
+    <Compile Include="Table\PivotTable\CacheItem.cs" />
+    <Compile Include="Table\PivotTable\CacheRecordNode.cs" />
+    <Compile Include="Table\PivotTable\DataCalculation\PivotCellBackingData.cs" />
+    <Compile Include="Table\PivotTable\DataCalculation\RowGrandTotalHelper.cs" />
+    <Compile Include="Table\PivotTable\DataCalculation\GrandTotalHelperBase.cs" />
+    <Compile Include="Table\PivotTable\DataCalculation\ColumnGrandTotalHelper.cs" />
+    <Compile Include="Table\PivotTable\DataCalculation\TotalFunctionHelper.cs" />
+    <Compile Include="Table\PivotTable\ExcelPageField.cs" />
+    <Compile Include="Table\PivotTable\ExcelPageFieldCollection.cs" />
+    <Compile Include="Table\PivotTable\ExcelPivotCacheRecords.cs" />
+    <Compile Include="Table\PivotTable\ExcelPivotTableDataFieldCollection.cs" />
+    <Compile Include="Table\PivotTable\ExcelPivotTableFieldCollectionBase.cs" />
+    <Compile Include="Table\PivotTable\ExcelPivotTableFieldDateGroup.cs" />
+    <Compile Include="Table\PivotTable\ExcelPivotTableFieldItemCollection.cs" />
+    <Compile Include="Table\PivotTable\ExcelPivotTableFieldNumericGroup.cs" />
+    <Compile Include="Table\PivotTable\ExcelPivotTableRowColumnFieldCollection.cs" />
+    <Compile Include="Table\PivotTable\ItemsCollection.cs" />
+    <Compile Include="Table\PivotTable\PivotTableHeader.cs" />
+    <Compile Include="Table\PivotTable\RowColumnItem.cs" />
+    <Compile Include="Table\PivotTable\SharedItemsCollection.cs" />
+    <Compile Include="Table\PivotTable\AutoSortScopeReference.cs" />
+    <Compile Include="Table\PivotTable\AutoSortScopeReferencesCollection.cs" />
     <Compile Include="Utils\ConvertUtil.cs" />
+    <Compile Include="Utils\InternationalizationUtility.cs" />
     <Compile Include="Utils\UriHelper.cs" />
     <Compile Include="Packaging\ZipPackage.cs" />
+    <Compile Include="Utils\XmlCollectionBase.cs" />
+    <Compile Include="Utils\XmlCollectionItemBase.cs" />
     <Compile Include="VBA\ExcelVbaModule.cs" />
     <Compile Include="VBA\ExcelVbaModuleAttribute.cs" />
     <Compile Include="VBA\ExcelVbaModuleCollection.cs" />
@@ -769,7 +816,6 @@
     <Compile Include="Style\XmlAccess\ExcelGradientFillXml.cs" />
     <Compile Include="Table\PivotTable\ExcelPivotTableFieldGroup.cs" />
     <Compile Include="Table\PivotTable\ExcelPivotTableFieldItem.cs" />
-    <Compile Include="Table\PivotTable\ExcelPivotTablePageFieldSettings.cs" />
     <Compile Include="Table\PivotTable\ExcelPivotTableDataField.cs" />
     <Compile Include="Table\PivotTable\ExcelPivotTableFieldCollection.cs" />
     <Compile Include="Style\IStyle.cs" />
@@ -811,10 +857,10 @@
     <Compile Include="Packaging\ZipPackageRelationship.cs" />
     <Compile Include="Packaging\ZipPackageRelationshipCollection.cs" />
     <Compile Include="Packaging\ZipPackageRelationshipBase.cs" />
+    <Compile Include="ZCellStore.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Drawing\Chart\ExcelLineChart.cs" />
-    <Compile Include="Drawing\Vml\ExcelVmlDrawingComment.cs" />
     <Compile Include="Drawing\Vml\ExcelVmlDrawingPosition.cs" />
     <Compile Include="Drawing\Vml\ExcelVmlDrawingBaseCollection.cs" />
     <Compile Include="ExcelAddress.cs" />
@@ -886,6 +932,7 @@
   <ItemGroup>
     <Compile Include="ConditionalFormatting\CF Implementation.cs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.

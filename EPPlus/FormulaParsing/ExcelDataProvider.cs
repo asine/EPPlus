@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using OfficeOpenXml.FormulaParsing.LexicalAnalysis;
+using OfficeOpenXml.Table.PivotTable;
 
 namespace OfficeOpenXml.FormulaParsing
 {
@@ -17,11 +18,11 @@ namespace OfficeOpenXml.FormulaParsing
 		{
 			bool IsEmpty { get; }
 			bool IsMulti { get; }
-			int GetNCells();
-			ExcelAddressBase Address { get; }
+			int GetTotalCellCount();
+			ExcelAddress Address { get; }
 			object GetValue(int row, int col);
 			object GetOffset(int rowOffset, int colOffset);
-
+			IEnumerable<object> AllValues();
 			ExcelWorksheet Worksheet { get; }
 		}
 
@@ -74,6 +75,16 @@ namespace OfficeOpenXml.FormulaParsing
 		/// <returns></returns>
 		public abstract IRangeInfo GetRange(string worksheetName, int row, int column, string address);
 
+		/// <summary>
+		/// Returns values from the range defined by the <paramref name="structuredReference"/>.
+		/// </summary>
+		/// <param name="structuredReference">The <see cref="StructuredReference"/> to resolve.</param>
+		/// <param name="originSheet">The sheet referencing the <paramref name="structuredReference"/>.</param>
+		/// <param name="originRow">The row referencing the <paramref name="structuredReference"/>.</param>
+		/// <param name="originColumn">The column referencing the <paramref name="structuredReference"/>.</param>
+		/// <returns>The <see cref="ExcelDataProvider.IRangeInfo"/> containing the referenced data.</returns>
+		public abstract IRangeInfo ResolveStructuredReference(StructuredReference structuredReference, string originSheet, int originRow, int originColumn);
+
 		public abstract INameInfo GetName(string worksheet, string name);
 
 		public abstract IEnumerable<object> GetRangeValues(string address);
@@ -122,5 +133,14 @@ namespace OfficeOpenXml.FormulaParsing
 		public abstract void Reset();
 
 		public abstract IRangeInfo GetRange(string worksheet, int fromRow, int fromCol, int toRow, int toCol);
+		
+		/// <summary>
+		/// Retrieves the <see cref="ExcelPivotTable"/> (if any) at the specified <paramref name="address"/>.
+		/// If multiple pivot tables exist within the range, the one that starts closest to 
+		/// cell A1 is returned.
+		/// </summary>
+		/// <param name="address">The <see cref="ExcelAddress"/> to look for a pivot table.</param>
+		/// <returns>The pivot table found at the specified address.</returns>
+		public abstract ExcelPivotTable GetPivotTable(ExcelAddress address); 
 	}
 }

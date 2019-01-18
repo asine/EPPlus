@@ -22,6 +22,7 @@
  *******************************************************************************
  * Mats Alm   		                Added		                2013-12-03
  *******************************************************************************/
+using System.Collections.Generic;
 using OfficeOpenXml.FormulaParsing.Excel.Functions.Database;
 using OfficeOpenXml.FormulaParsing.Excel.Functions.DateTime;
 using OfficeOpenXml.FormulaParsing.Excel.Functions.Information;
@@ -175,14 +176,17 @@ namespace OfficeOpenXml.FormulaParsing.Excel.Functions
 			this.Functions["vlookup"] = new VLookup();
 			this.Functions["lookup"] = new Lookup();
 			this.Functions["match"] = new Match();
-			this.Functions["row"] = new Row() { SkipArgumentEvaluation = true };
-			this.Functions["rows"] = new Rows() { SkipArgumentEvaluation = true };
-			this.Functions["column"] = new Column() { SkipArgumentEvaluation = true };
-			this.Functions["columns"] = new Columns() { SkipArgumentEvaluation = true };
+			this.Functions["row"] = new Row();
+			this.Functions["rows"] = new Rows();
+			this.Functions["column"] = new Column();
+			this.Functions["columns"] = new Columns();
 			this.Functions["choose"] = new Choose();
 			this.Functions["index"] = new Index();
 			this.Functions["indirect"] = new Indirect();
-			this.Functions["offset"] = new Offset() { SkipArgumentEvaluation = true };
+			this.Functions["indirectaddress"] = new IndirectAddress();
+			this.Functions["offset"] = new Offset();
+			this.Functions["offsetaddress"] = new OffsetAddress();
+			this.Functions["getpivotdata"] = new GetPivotData();
 			// Date
 			this.Functions["date"] = new Date();
 			this.Functions["today"] = new Today();
@@ -202,6 +206,7 @@ namespace OfficeOpenXml.FormulaParsing.Excel.Functions
 			this.Functions["eomonth"] = new Eomonth();
 			this.Functions["isoweeknum"] = new IsoWeekNum();
 			this.Functions["workday"] = new Workday();
+			this.Functions["workday.intl"] = new WorkdayIntl();
 			this.Functions["networkdays"] = new Networkdays();
 			this.Functions["networkdays.intl"] = new NetworkdaysIntl();
 			this.Functions["datevalue"] = new DateValue();

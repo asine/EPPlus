@@ -58,7 +58,12 @@ namespace OfficeOpenXml.FormulaParsing.LexicalAnalysis
 		InvalidReference,
 		NumericError,
 		ValueDataTypeError,
+		NotApplicableError,
+		DivideByZeroError,
+		NameError,
 		Null,
-		Unrecognized
+		Unrecognized,
+		Hashtag,
+		StructuredReference
 	}
 }

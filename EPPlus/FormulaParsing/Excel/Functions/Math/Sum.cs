@@ -54,7 +54,7 @@ namespace OfficeOpenXml.FormulaParsing.Excel.Functions.Math
 			{
 				foreach (var arg in arguments)
 				{
-					if (arg.Value is string && !ConvertUtil.TryParseDateObjectToOADate(arg.Value, out _))
+					if (arg.Value is string && !ConvertUtil.TryParseObjectToDecimal(arg.Value, out _))
 						return new CompileResult(eErrorType.Value);
 					var valToAdd = this.Calculate(arg, context);
 					sum += valToAdd;
@@ -87,8 +87,7 @@ namespace OfficeOpenXml.FormulaParsing.Excel.Functions.Math
 			}
 			else
 			{
-				var rangeVal = arg.Value as ExcelDataProvider.IRangeInfo;
-				if (rangeVal != null)
+				if (arg.Value is ExcelDataProvider.IRangeInfo rangeVal)
 				{
 					foreach (var cell in rangeVal)
 					{
@@ -104,7 +103,7 @@ namespace OfficeOpenXml.FormulaParsing.Excel.Functions.Math
 					this.CheckForAndHandleExcelError(arg);
 					if (IsNumericString(arg.Value) && !isInArray)
 					{
-						ConvertUtil.TryParseDateObjectToOADate(arg.Value, out double value);
+						ConvertUtil.TryParseObjectToDecimal(arg.Value, out double value);
 						return value;
 					}
 					if (!isInArray)

@@ -23,12 +23,29 @@
  * Mats Alm   		                Added		                2013-12-03
  *******************************************************************************/
 using System.Collections.Generic;
+using System.Linq;
+using OfficeOpenXml.FormulaParsing.ExcelUtilities;
 using OfficeOpenXml.FormulaParsing.ExpressionGraph;
 
 namespace OfficeOpenXml.FormulaParsing.Excel.Functions.RefAndLookup
 {
 	public class HLookup : LookupFunction
 	{
+		#region LookupFunction Overrides
+		/// <summary>
+		/// Gets a value representing the indicies of the arguments to the lookup function that
+		/// should be compiled as ExcelAddresses instead of being evaluated.
+		/// </summary>
+		public override List<int> LookupArgumentIndicies { get; } = new List<int> { 1 };
+		#endregion
+
+		#region ExcelFunction Overrides
+		/// <summary>
+		/// Executes the function with the specified <paramref name="arguments"/> in the specified <paramref name="context"/>.
+		/// </summary>
+		/// <param name="arguments">The arguments with which to evaluate the function.</param>
+		/// <param name="context">The context in which to evaluate the function.</param>
+		/// <returns>The <see cref="CompileResult"/>.</returns>
 		public override CompileResult Execute(IEnumerable<FunctionArgument> arguments, ParsingContext context)
 		{
 			if (this.ArgumentsAreValid(arguments, 3, out eErrorType argumentError) == false)
@@ -37,7 +54,11 @@ namespace OfficeOpenXml.FormulaParsing.Excel.Functions.RefAndLookup
 			if (lookupArgs.LookupIndex < 1)
 				return new CompileResult(eErrorType.Value);
 			var navigator = LookupNavigatorFactory.Create(LookupDirection.Horizontal, lookupArgs, context);
-			return Lookup(navigator, lookupArgs);
+			if (arguments.Count() > 3 && arguments.ElementAt(3).Value is bool rangeLookup && !rangeLookup)
+				return Lookup(navigator, lookupArgs, new WildCardValueMatcher());
+			else 
+				return Lookup(navigator, lookupArgs, new LookupValueMatcher());
 		}
+		#endregion
 	}
 }
